@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Mantenimientos</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f8; }
+    .container { max-width: 650px; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 0 auto; }
+    h2 { color: #333; margin-top: 0; text-align: center; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+    select, input, textarea, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    
+    .btn-scanner { background-color: #17a2b8; color: white; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+    .btn-scanner:hover { background-color: #138496; }
+    #reader-wrapper { display: none; margin-bottom: 15px; border: 2px dashed #17a2b8; padding: 10px; border-radius: 6px; background: #fafafa; }
+    #reader { width: 100%; }
+
+    .btn-primary { background-color: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+    .btn-primary:hover { background-color: #0056b3; }
+    
+    .btn-success { background-color: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 16px; }
+    .btn-success:hover { background-color: #218838; }
+
+    .btn-logout { background-color: #dc3545; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 14px; margin-bottom: 15px; }
+    
+    .status-msg { margin-top: 15px; padding: 10px; border-radius: 4px; display: none; text-align: center; }
+    .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    
+    #main-section { display: none; } 
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <!-- SECCIÓN DE LOGIN -->
+  <div id="login-section">
+    <h2>Ingreso al Sistema</h2>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="loginDNI">DNI:</label>
+        <input type="text" id="loginDNI" required placeholder="Ingrese su DNI">
+      </div>
+      <div class="form-group">
+        <label for="loginPass">Contraseña:</label>
+        <input type="password" id="loginPass" required placeholder="Ingrese su contraseña">
+      </div>
+      <button type="submit" class="btn-primary" id="btnLogin">Ingresar</button>
+      <div id="loginMsg" class="status-msg"></div>
+    </form>
+  </div>
+
+  <!-- SECCIÓN PRINCIPAL -->
+  <div id="main-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+      <h3 style="margin: 0; color: #333;">Técnico: <span id="nombreUsuarioInfo" style="color: #007bff;"></span></h3>
+      <button class="btn-logout" style="width: auto;" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
+
+    <h2>Registrar Mantenimiento</h2>
+    
+    <form id="mantForm">
+      <div class="form-group">
+        <label for="idEquipo">Equipo / Infraestructura:</label>
+        <button type="button" class="btn-scanner" id="btnToggleScan" onclick="toggleScanner()">
+          📷 Escanear QR / Código de Barras
+        </button>
+        <div id="reader-wrapper">
+          <div id="reader"></div>
+          <button type="button" onclick="stopScanner()" style="background-color: #dc3545; color: white; margin-top: 10px;">Cerrar Cámara</button>
+        </div>
+        <select id="idEquipo" required>
+          <option value="">Cargando equipos...</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="tipo">Tipo de Mantenimiento:</label>
+        <select id="tipo" required>
+          <option value="Preventivo">Preventivo</option>
+          <option value="Correctivo">Correctivo</option>
+          <option value="Predictivo">Predictivo</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="descripcion">Descripción de tareas realizadas:</label>
+        <textarea id="descripcion" rows="4" required placeholder="Detalle los trabajos realizados..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="proximaFecha">Próximo Mantenimiento:</label>
+        <input type="date" id="proximaFecha">
+      </div>
+
+      <div class="form-group">
+        <label for="evidencia">Foto / Archivo (Se comprime automáticamente):</label>
+        <input type="file" id="evidencia" accept="image/*,.pdf">
+      </div>
+
+      <button type="submit" class="btn-success" id="btnSubmit">Guardar Mantenimiento</button>
+    </form>
+
+    <div id="statusMsg" class="status-msg"></div>
+  </div>
+
+</div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/TU_ID_DE_DESPLIEGUE/exec";
+  
+  let currentDNI = null;
+  let currentNombre = null;
+  let html5QrCode = null;
+
+  // LOGIN
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("btnLogin");
+    const msg = document.getElementById("loginMsg");
+    const dni = document.getElementById("loginDNI").value;
+    const pass = document.getElementById("loginPass").value;
+
+    btn.disabled = true;
+    btn.textContent = "Verificando...";
+    msg.style.display = "none";
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "login", dni: dni, password: pass })
+      });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        currentDNI = data.dni;
+        currentNombre = data.nombre;
+        
+        document.getElementById("login-section").style.display = "none";
+        document.getElementById("main-section").style.display = "block";
+        document.getElementById("nombreUsuarioInfo").textContent = currentNombre;
+        
+        cargarEquipos();
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      msg.className = "status-msg error";
+      msg.textContent = err.message || "Error al conectar.";
+      msg.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Ingresar";
+    }
+  });
+
+  function cerrarSesion() {
+    currentDNI = null;
+    currentNombre = null;
+    document.getElementById("loginForm").reset();
+    document.getElementById("mantForm").reset();
+    document.getElementById("main-section").style.display = "none";
+    document.getElementById("login-section").style.display = "block";
+    stopScanner();
+  }
+
+  // CARGAR EQUIPOS CON LAS NUEVAS COLUMNAS
+  async function cargarEquipos() {
+    try {
+      const resEq = await fetch(`${API_URL}?action=getEquipos`);
+      const listaEquipos = await resEq.json();
+      const selectEq = document.getElementById("idEquipo");
+      
+      selectEq.innerHTML = '<option value="">-- Seleccione un equipo --</option>';
+      listaEquipos.forEach(eq => {
+        const option = document.createElement("option");
+        option.value = eq.ID_Equipo;
+        option.dataset.serie = eq.Serie || "";
+        
+        // Muestra Denominación | Marca Modelo | Serie (Ubicación)
+        const denominacion = eq.Denominacion || "Equipo";
+        const marcaModelo = `${eq.Marca || ''} ${eq.Modelo || ''}`.trim();
+        const serie = eq.Serie ? ` | Serie: ${eq.Serie}` : '';
+        const ubicacion = eq.Ubicacion ? ` (${eq.Ubicacion})` : '';
+
+        option.textContent = `[${eq.ID_Equipo}] ${denominacion} - ${marcaModelo}${serie}${ubicacion}`;
+        selectEq.appendChild(option);
+      });
+    } catch (err) {
+      console.error("Error cargando equipos:", err);
+    }
+  }
+
+  // ESCÁNER CÓDIGO QR / BARRAS
+  function toggleScanner() {
+    const wrapper = document.getElementById("reader-wrapper");
+    wrapper.style.display === "block" ? stopScanner() : startScanner();
+  }
+
+  function startScanner() {
+    document.getElementById("reader-wrapper").style.display = "block";
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" }, 
+      { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.0 }, 
+      (decodedText) => {
+        const codigo = decodedText.trim().toLowerCase();
+        const selectEq = document.getElementById("idEquipo");
+        let encontrado = false;
+        
+        for (let i = 0; i < selectEq.options.length; i++) {
+          const opt = selectEq.options[i];
+          if (opt.value.toLowerCase() === codigo || (opt.dataset.serie || "").toLowerCase() === codigo) {
+            selectEq.selectedIndex = i;
+            encontrado = true;
+            break;
+          }
+        }
+        if (encontrado) {
+          alert(`✅ Equipo seleccionado: ${decodedText}`);
+          stopScanner();
+        } else {
+          alert("⚠️ Código escaneado no encontrado en la lista.");
+        }
+      },
+      (error) => {}
+    ).catch(err => {
+      alert("No se pudo acceder a la cámara.");
+      stopScanner();
+    });
+  }
+
+  function stopScanner() {
+    if (html5QrCode) {
+      html5QrCode.stop().then(() => document.getElementById("reader-wrapper").style.display = "none");
+    } else {
+      document.getElementById("reader-wrapper").style.display = "none";
+    }
+  }
+
+  // COMPRESIÓN DE IMAGEN
+  function compressImage(file, maxWidth = 1024, quality = 0.7) {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve({ base64: e.target.result, fileName: file.name, mimeType: file.type });
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let w = img.width, h = img.height;
+          if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve({
+            base64: canvas.toDataURL("image/jpeg", quality),
+            fileName: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+            mimeType: "image/jpeg"
+          });
+        };
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // GUARDAR MANTENIMIENTO
+  document.getElementById("mantForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("btnSubmit");
+    const msgDiv = document.getElementById("statusMsg");
+    
+    btn.disabled = true;
+    btn.textContent = "Guardando...";
+    msgDiv.style.display = "none";
+
+    const fileInput = document.getElementById("evidencia");
+    let fileData = {};
+    if (fileInput.files.length > 0) fileData = await compressImage(fileInput.files[0]);
+
+    const payload = {
+      action: "save",
+      dniTecnico: currentDNI,
+      idEquipo: document.getElementById("idEquipo").value,
+      tipo: document.getElementById("tipo").value,
+      descripcion: document.getElementById("descripcion").value,
+      proximaFecha: document.getElementById("proximaFecha").value,
+      fileBase64: fileData.base64 || null,
+      fileName: fileData.fileName || null,
+      fileMimeType: fileData.mimeType || null
+    };
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        msgDiv.className = "status-msg success";
+        msgDiv.textContent = `Mantenimiento guardado con éxito. (ID: ${data.id})`;
+        msgDiv.style.display = "block";
+        document.getElementById("mantForm").reset();
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      msgDiv.className = "status-msg error";
+      msgDiv.textContent = "Error al registrar el mantenimiento.";
+      msgDiv.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Guardar Mantenimiento";
+    }
+  });
+</script>
+
+</body>
+</html>
