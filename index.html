@@ -1,328 +1,353 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema de Mantenimientos</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f8; }
-    .container { max-width: 650px; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 0 auto; }
-    h2 { color: #333; margin-top: 0; text-align: center; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-    select, input, textarea, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    
-    .btn-scanner { background-color: #17a2b8; color: white; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
-    .btn-scanner:hover { background-color: #138496; }
-    #reader-wrapper { display: none; margin-bottom: 15px; border: 2px dashed #17a2b8; padding: 10px; border-radius: 6px; background: #fafafa; }
-    #reader { width: 100%; }
-
-    .btn-primary { background-color: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
-    .btn-primary:hover { background-color: #0056b3; }
-    
-    .btn-success { background-color: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 16px; }
-    .btn-success:hover { background-color: #218838; }
-
-    .btn-logout { background-color: #dc3545; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 14px; margin-bottom: 15px; }
-    
-    .status-msg { margin-top: 15px; padding: 10px; border-radius: 4px; display: none; text-align: center; }
-    .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    
-    #main-section { display: none; } 
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mantenimiento de equipos</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#12333a;--bg:#f3f6f6;--line:#d5e0e0;--mut:#5d7478;--acc:#0e6b73;--ok:#2f7d5b;--warn:#b86e00;--bad:#b3352b}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 "IBM Plex Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select,textarea{font:inherit;color:inherit}
+header{background:var(--ink);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;font-weight:600;flex:1}
+header span{font-size:13px;opacity:.8}
+main{max-width:800px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px}
+label{display:block;font-size:13px;font-weight:500;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:#fff}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+input[readonly]{background:#eef3f3}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:6px;padding:10px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn.sec{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+.btn.bad{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.btn.ghost{background:transparent;color:#fff;border:1px solid #ffffff66;padding:6px 10px;font-weight:500}
+.btn:disabled{opacity:.6;cursor:wait}
+.login{max-width:360px;margin:8vh auto 0}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:8px}
+.tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;padding:10px 14px;cursor:pointer;font-weight:500;color:var(--mut);border-bottom:3px solid transparent}
+.tab.on{color:var(--ink);border-color:var(--acc)}
+.pill{background:var(--bad);color:#fff;border-radius:10px;padding:0 7px;font-size:12px;margin-left:4px}
+.bar{display:flex;gap:8px;margin-bottom:12px}
+.list{display:grid;gap:8px}
+.eq{display:flex;gap:12px;align-items:center;justify-content:space-between;cursor:pointer}
+.eq b{display:block}.eq small{color:var(--mut)}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mut);margin-top:4px}
+.badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;border:1px solid}
+.b-vencido{color:var(--bad);border-color:var(--bad)}.b-proximo{color:var(--warn);border-color:var(--warn)}
+.b-ok{color:var(--ok);border-color:var(--ok)}.b-sin{color:var(--mut);border-color:var(--line)}
+.empty{text-align:center;color:var(--mut);padding:28px}
+h3{margin:18px 0 6px;font-size:15px}
+dialog{border:0;border-radius:10px;padding:18px;width:min(620px,95vw);max-height:92vh}
+dialog::backdrop{background:#12333a99}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;font-size:14px}
+.kv dt{color:var(--mut)}.kv dd{margin:0}
+.hist{border-left:3px solid var(--acc);padding:2px 0 2px 10px;margin:10px 0}
+.hist small{color:var(--mut);display:block}
+.prev{font-size:13px;color:var(--mut);margin-top:6px}
+.prev img{max-width:100%;max-height:140px;border-radius:6px;display:block;margin-top:6px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:6px;display:none;z-index:99}
+#report{display:none;font:12px/1.4 "IBM Plex Sans",Arial,sans-serif;color:#000}
+#report h1{font-size:18px;margin:0 0 2px}#report h2{font-size:13px;margin:16px 0 6px;border-bottom:1px solid #000}
+#report table{width:100%;border-collapse:collapse}
+#report th,#report td{border:1px solid #888;padding:4px 6px;text-align:left;vertical-align:top}
+#report .sig{display:flex;gap:40px;margin-top:60px}#report .sig div{flex:1;border-top:1px solid #000;text-align:center;padding-top:4px}
+.hide{display:none!important}
+@media(max-width:480px){.row{grid-template-columns:1fr}.kv{grid-template-columns:100px 1fr}}
+@media print{body.printing>*:not(#report){display:none!important}body.printing #report{display:block}body{background:#fff}@page{margin:14mm}}
+</style>
 </head>
 <body>
+<header>
+  <h1>Mantenimiento de equipos</h1>
+  <span id="who"></span>
+  <button class="btn ghost hide" id="out">Salir</button>
+</header>
 
-<div class="container">
-  
-  <!-- SECCIÓN DE LOGIN -->
-  <div id="login-section">
-    <h2>Ingreso al Sistema</h2>
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="loginDNI">DNI:</label>
-        <input type="text" id="loginDNI" required placeholder="Ingrese su DNI">
-      </div>
-      <div class="form-group">
-        <label for="loginPass">Contraseña:</label>
-        <input type="password" id="loginPass" required placeholder="Ingrese su contraseña">
-      </div>
-      <button type="submit" class="btn-primary" id="btnLogin">Ingresar</button>
-      <div id="loginMsg" class="status-msg"></div>
-    </form>
-  </div>
+<main>
+  <section id="vLogin" class="card login">
+    <h2 style="margin:0 0 4px">Ingresar</h2>
+    <label for="dni">DNI</label><input id="dni" inputmode="numeric" autocomplete="username">
+    <label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password">
+    <details id="cfg" style="margin-top:12px">
+      <summary style="cursor:pointer;color:var(--mut);font-size:13px">Conexión</summary>
+      <label for="url">URL de la aplicación web (Apps Script)</label>
+      <input id="url" placeholder="https://script.google.com/macros/s/.../exec">
+    </details>
+    <div class="err" id="eLogin"></div>
+    <button class="btn" id="bLogin" style="width:100%">Ingresar</button>
+  </section>
 
-  <!-- SECCIÓN PRINCIPAL -->
-  <div id="main-section">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-      <h3 style="margin: 0; color: #333;">Técnico: <span id="nombreUsuarioInfo" style="color: #007bff;"></span></h3>
-      <button class="btn-logout" style="width: auto;" onclick="cerrarSesion()">Cerrar Sesión</button>
+  <section id="vApp" class="hide">
+    <div class="tabs">
+      <button class="tab on" data-t="eq">Equipos</button>
+      <button class="tab" data-t="al">Alertas <span class="pill hide" id="nAl"></span></button>
     </div>
-
-    <h2>Registrar Mantenimiento</h2>
-    
-    <form id="mantForm">
-      <div class="form-group">
-        <label for="idEquipo">Equipo / Infraestructura:</label>
-        <button type="button" class="btn-scanner" id="btnToggleScan" onclick="toggleScanner()">
-          📷 Escanear QR / Código de Barras
-        </button>
-        <div id="reader-wrapper">
-          <div id="reader"></div>
-          <button type="button" onclick="stopScanner()" style="background-color: #dc3545; color: white; margin-top: 10px;">Cerrar Cámara</button>
-        </div>
-        <select id="idEquipo" required>
-          <option value="">Cargando equipos...</option>
-        </select>
+    <div id="pEq">
+      <div class="bar">
+        <input id="q" type="search" placeholder="Buscar por código, nombre, ubicación…" aria-label="Buscar equipo">
+        <button class="btn" id="new">Nuevo equipo</button>
+        <button class="btn sec" id="reload">Actualizar</button>
       </div>
+      <div class="list" id="list"></div>
+    </div>
+    <div id="pAl" class="hide"><div class="list" id="alList"></div></div>
+  </section>
+</main>
 
-      <div class="form-group">
-        <label for="tipo">Tipo de Mantenimiento:</label>
-        <select id="tipo" required>
-          <option value="Preventivo">Preventivo</option>
-          <option value="Correctivo">Correctivo</option>
-          <option value="Predictivo">Predictivo</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="descripcion">Descripción de tareas realizadas:</label>
-        <textarea id="descripcion" rows="4" required placeholder="Detalle los trabajos realizados..."></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="proximaFecha">Próximo Mantenimiento:</label>
-        <input type="date" id="proximaFecha">
-      </div>
-
-      <div class="form-group">
-        <label for="evidencia">Foto / Archivo (Se comprime automáticamente):</label>
-        <input type="file" id="evidencia" accept="image/*,.pdf">
-      </div>
-
-      <button type="submit" class="btn-success" id="btnSubmit">Guardar Mantenimiento</button>
-    </form>
-
-    <div id="statusMsg" class="status-msg"></div>
+<dialog id="dDet">
+  <h2 style="margin:0" id="tDet"></h2>
+  <span class="badge" id="bDet"></span>
+  <dl class="kv" id="kvDet" style="margin-top:12px"></dl>
+  <h3>Historial de mantenimientos</h3>
+  <div id="hDet"></div>
+  <div class="actions">
+    <button class="btn bad" id="aDel">Eliminar</button>
+    <button class="btn sec" id="aEdit">Editar</button>
+    <button class="btn sec" id="aRep">Informe PDF / imprimir</button>
+    <button class="btn" id="aMant">Registrar mantenimiento</button>
+    <button class="btn sec" id="aClose">Cerrar</button>
   </div>
+</dialog>
 
-</div>
+<dialog id="dEq">
+  <h2 style="margin:0" id="tEq"></h2>
+  <div id="fEq"></div>
+  <div class="err" id="eEq"></div>
+  <div class="actions"><button class="btn sec" id="cEq">Cancelar</button><button class="btn" id="sEq">Guardar equipo</button></div>
+</dialog>
+
+<dialog id="dlg">
+  <h2 style="margin:0">Registrar mantenimiento</h2>
+  <div class="prev" id="dEqN"></div>
+  <label for="tipo">Tipo</label>
+  <select id="tipo"><option>Preventivo</option><option>Correctivo</option><option>Predictivo</option><option>Calibración</option></select>
+  <div class="row">
+    <div><label for="fecha">Fecha realizada</label><input id="fecha" type="date"></div>
+    <div><label for="prox">Próximo mantenimiento</label><input id="prox" type="date"></div>
+  </div>
+  <label for="desc">Descripción del trabajo</label>
+  <textarea id="desc" rows="4" placeholder="Qué se revisó, qué se cambió, estado final del equipo"></textarea>
+  <label for="file">Evidencia (foto o PDF)</label>
+  <input id="file" type="file" accept="image/*,application/pdf">
+  <div class="prev" id="fprev"></div>
+  <div class="err" id="eSave"></div>
+  <div class="actions"><button class="btn sec" id="cancel">Cancelar</button><button class="btn" id="save">Guardar registro</button></div>
+</dialog>
+
+<div id="report"></div>
+<div id="toast" role="status"></div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbw5LUw2mY7qADtd-uqQp8TwPaT3oR-0xwPo4oB63GV1-zstW7kowXGaEqef7jI8mV4C/exec";
-  
-  let currentDNI = null;
-  let currentNombre = null;
-  let html5QrCode = null;
+// URL de tu implementación web de Apps Script (termina en /exec). También se puede pegar en la pantalla de ingreso.
+const DEFAULT_URL = "";
+// Título que aparece en el informe impreso.
+const INSTITUCION = "Informe técnico de equipo";
+const DEF = ["ID","Nombre","Marca","Modelo","Serie","Ubicación","Estado"];
 
-  // LOGIN
-  document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById("btnLogin");
-    const msg = document.getElementById("loginMsg");
-    const dni = document.getElementById("loginDNI").value;
-    const pass = document.getElementById("loginPass").value;
+const $ = id => document.getElementById(id);
+const wrap = s => ({
+  get(k){ try{ return s.getItem(k) }catch(e){ return null } },
+  set(k,v){ try{ s.setItem(k,v) }catch(e){} },
+  del(k){ try{ s.removeItem(k) }catch(e){} }
+});
+const store = wrap(localStorage), sess = wrap(sessionStorage);
+let user = null, pass = "", equipos = [], headers = DEF, mants = [], current = null, editing = null, fileData = null;
 
-    btn.disabled = true;
-    btn.textContent = "Verificando...";
-    msg.style.display = "none";
+const apiUrl = () => ($("url").value.trim() || store.get("apiUrl") || DEFAULT_URL);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const today = () => new Date().toISOString().slice(0,10);
+const days = d => Math.round((new Date(d) - new Date(today())) / 864e5);
+const fmt = v => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) ? v.slice(0,10) : v;
 
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "login", dni: dni, password: pass })
-      });
-      const data = await res.json();
+function toast(m, bad){ const t = $("toast"); t.textContent = m; t.style.background = bad ? "var(--bad)" : "var(--ink)"; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3500); }
 
-      if (data.status === "success") {
-        currentDNI = data.dni;
-        currentNombre = data.nombre;
-        
-        document.getElementById("login-section").style.display = "none";
-        document.getElementById("main-section").style.display = "block";
-        document.getElementById("nombreUsuarioInfo").textContent = currentNombre;
-        
-        cargarEquipos();
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (err) {
-      msg.className = "status-msg error";
-      msg.textContent = err.message || "Error al conectar.";
-      msg.style.display = "block";
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Ingresar";
-    }
+async function post(body){
+  const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, // sin preflight CORS
+    body: JSON.stringify({dni:user && user.dni, password:pass, ...body}) });
+  const j = await r.json();
+  if(j.message === "Sesión no válida"){ logout(); toast("La sesión expiró. Ingresa de nuevo.", true); }
+  return j;
+}
+
+/* ---------- Acceso ---------- */
+$("url").value = store.get("apiUrl") || DEFAULT_URL;
+if(!$("url").value) $("cfg").open = true;
+
+$("bLogin").onclick = async () => {
+  const dni = $("dni").value.trim(), pw = $("pw").value; $("eLogin").textContent = "";
+  if(!apiUrl()){ $("cfg").open = true; $("eLogin").textContent = "Falta la URL de la aplicación web."; return; }
+  if(!dni || !pw){ $("eLogin").textContent = "Escribe tu DNI y contraseña."; return; }
+  $("bLogin").disabled = true;
+  try{
+    user = null;
+    const r = await post({action:"login", dni, password:pw});
+    if(r.status !== "success"){ $("eLogin").textContent = r.message || "No se pudo ingresar."; return; }
+    store.set("apiUrl", apiUrl());
+    user = {dni:String(r.dni), nombre:r.nombre}; pass = pw;
+    sess.set("s", JSON.stringify({user, pass}));
+    enter();
+  }catch(e){ $("eLogin").textContent = "No hay conexión con el servidor. Revisa la URL y tu internet."; }
+  finally{ $("bLogin").disabled = false; }
+};
+[$("dni"),$("pw")].forEach(i => i.addEventListener("keydown", e => { if(e.key === "Enter") $("bLogin").click(); }));
+function logout(){ sess.del("s"); user = null; pass = ""; $("pw").value = ""; show(false); }
+$("out").onclick = logout;
+function show(on){ $("vLogin").classList.toggle("hide", on); $("vApp").classList.toggle("hide", !on); $("out").classList.toggle("hide", !on); $("who").textContent = on ? user.nombre : ""; }
+function enter(){ show(true); loadAll(); }
+
+/* ---------- Datos ---------- */
+async function loadAll(){
+  $("list").innerHTML = '<div class="empty">Cargando…</div>';
+  try{
+    const [eq, m] = await Promise.all([fetch(apiUrl() + "?action=getEquipos").then(r => r.json()), post({action:"getMantenimientos"})]);
+    equipos = Array.isArray(eq) ? eq : []; headers = equipos.length ? Object.keys(equipos[0]) : DEF;
+    mants = m.status === "success" ? m.data : [];
+    render(); renderAlerts();
+    if($("dDet").open && current) openDet(equipos.find(e => String(idOf(e)) === String(idOf(current))));
+  }catch(e){ $("list").innerHTML = '<div class="empty">No se pudo cargar. Toca Actualizar para reintentar.</div>'; }
+}
+$("reload").onclick = loadAll;
+
+const idOf = e => e[headers[0]];
+const nameOf = e => e[headers.find(h => /nombre|equipo|descrip/i.test(h)) || headers[1]] ?? "";
+
+function info(id){
+  const h = mants.filter(m => String(m.idEquipo) === String(id)).sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const prox = h[0] ? (h[0].proximaFecha || "") : "";
+  let st = "sin", txt = "Sin programar";
+  if(prox){ const d = days(prox);
+    if(d < 0){ st = "vencido"; txt = `Vencido hace ${-d} d`; } else if(d <= 30){ st = "proximo"; txt = d === 0 ? "Vence hoy" : `En ${d} d`; } else { st = "ok"; txt = "Al día"; } }
+  return {h, last:h[0], prox, st, txt};
+}
+const badge = i => `<span class="badge b-${i.st}">${esc(i.txt)}</span>`;
+
+/* ---------- Lista y alertas ---------- */
+$("q").oninput = render;
+function render(){
+  const q = $("q").value.trim().toLowerCase();
+  const rows = equipos.filter(e => !q || Object.values(e).some(v => String(v).toLowerCase().includes(q)));
+  $("list").innerHTML = rows.length ? "" : `<div class="empty">${equipos.length ? "Ningún equipo coincide con la búsqueda." : "Aún no hay equipos. Usa «Nuevo equipo» para agregar el primero."}</div>`;
+  rows.forEach(e => {
+    const i = info(idOf(e)), d = document.createElement("div"); d.className = "card eq";
+    d.innerHTML = `<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta">${headers.slice(2,5).map(h => e[h] !== "" ? `<span>${esc(h)}: ${esc(fmt(e[h]))}</span>` : "").join("")}</div></div>${badge(i)}`;
+    d.onclick = () => openDet(e); $("list").appendChild(d);
   });
-
-  function cerrarSesion() {
-    currentDNI = null;
-    currentNombre = null;
-    document.getElementById("loginForm").reset();
-    document.getElementById("mantForm").reset();
-    document.getElementById("main-section").style.display = "none";
-    document.getElementById("login-section").style.display = "block";
-    stopScanner();
-  }
-
-  // CARGAR EQUIPOS CON LAS NUEVAS COLUMNAS
-  async function cargarEquipos() {
-    try {
-      const resEq = await fetch(`${API_URL}?action=getEquipos`);
-      const listaEquipos = await resEq.json();
-      const selectEq = document.getElementById("idEquipo");
-      
-      selectEq.innerHTML = '<option value="">-- Seleccione un equipo --</option>';
-      listaEquipos.forEach(eq => {
-        const option = document.createElement("option");
-        option.value = eq.ID_Equipo;
-        option.dataset.serie = eq.Serie || "";
-        
-        // Muestra Denominación | Marca Modelo | Serie (Ubicación)
-        const denominacion = eq.Denominacion || "Equipo";
-        const marcaModelo = `${eq.Marca || ''} ${eq.Modelo || ''}`.trim();
-        const serie = eq.Serie ? ` | Serie: ${eq.Serie}` : '';
-        const ubicacion = eq.Ubicacion ? ` (${eq.Ubicacion})` : '';
-
-        option.textContent = `[${eq.ID_Equipo}] ${denominacion} - ${marcaModelo}${serie}${ubicacion}`;
-        selectEq.appendChild(option);
-      });
-    } catch (err) {
-      console.error("Error cargando equipos:", err);
-    }
-  }
-
-  // ESCÁNER CÓDIGO QR / BARRAS
-  function toggleScanner() {
-    const wrapper = document.getElementById("reader-wrapper");
-    wrapper.style.display === "block" ? stopScanner() : startScanner();
-  }
-
-  function startScanner() {
-    document.getElementById("reader-wrapper").style.display = "block";
-    html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" }, 
-      { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.0 }, 
-      (decodedText) => {
-        const codigo = decodedText.trim().toLowerCase();
-        const selectEq = document.getElementById("idEquipo");
-        let encontrado = false;
-        
-        for (let i = 0; i < selectEq.options.length; i++) {
-          const opt = selectEq.options[i];
-          if (opt.value.toLowerCase() === codigo || (opt.dataset.serie || "").toLowerCase() === codigo) {
-            selectEq.selectedIndex = i;
-            encontrado = true;
-            break;
-          }
-        }
-        if (encontrado) {
-          alert(`✅ Equipo seleccionado: ${decodedText}`);
-          stopScanner();
-        } else {
-          alert("⚠️ Código escaneado no encontrado en la lista.");
-        }
-      },
-      (error) => {}
-    ).catch(err => {
-      alert("No se pudo acceder a la cámara.");
-      stopScanner();
-    });
-  }
-
-  function stopScanner() {
-    if (html5QrCode) {
-      html5QrCode.stop().then(() => document.getElementById("reader-wrapper").style.display = "none");
-    } else {
-      document.getElementById("reader-wrapper").style.display = "none";
-    }
-  }
-
-  // COMPRESIÓN DE IMAGEN
-  function compressImage(file, maxWidth = 1024, quality = 0.7) {
-    return new Promise((resolve) => {
-      if (!file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve({ base64: e.target.result, fileName: file.name, mimeType: file.type });
-        reader.readAsDataURL(file);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          let w = img.width, h = img.height;
-          if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-          resolve({
-            base64: canvas.toDataURL("image/jpeg", quality),
-            fileName: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
-            mimeType: "image/jpeg"
-          });
-        };
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  // GUARDAR MANTENIMIENTO
-  document.getElementById("mantForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById("btnSubmit");
-    const msgDiv = document.getElementById("statusMsg");
-    
-    btn.disabled = true;
-    btn.textContent = "Guardando...";
-    msgDiv.style.display = "none";
-
-    const fileInput = document.getElementById("evidencia");
-    let fileData = {};
-    if (fileInput.files.length > 0) fileData = await compressImage(fileInput.files[0]);
-
-    const payload = {
-      action: "save",
-      dniTecnico: currentDNI,
-      idEquipo: document.getElementById("idEquipo").value,
-      tipo: document.getElementById("tipo").value,
-      descripcion: document.getElementById("descripcion").value,
-      proximaFecha: document.getElementById("proximaFecha").value,
-      fileBase64: fileData.base64 || null,
-      fileName: fileData.fileName || null,
-      fileMimeType: fileData.mimeType || null
-    };
-
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-
-      if (data.status === "success") {
-        msgDiv.className = "status-msg success";
-        msgDiv.textContent = `Mantenimiento guardado con éxito. (ID: ${data.id})`;
-        msgDiv.style.display = "block";
-        document.getElementById("mantForm").reset();
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (err) {
-      msgDiv.className = "status-msg error";
-      msgDiv.textContent = "Error al registrar el mantenimiento.";
-      msgDiv.style.display = "block";
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Guardar Mantenimiento";
-    }
+}
+function renderAlerts(){
+  const all = equipos.map(e => ({e, i:info(idOf(e))}));
+  const ord = {vencido:0, proximo:1, sin:2};
+  const rows = all.filter(x => ord[x.i.st] !== undefined).sort((a,b) => ord[a.i.st] - ord[b.i.st] || String(a.i.prox).localeCompare(String(b.i.prox)));
+  const n = all.filter(x => x.i.st === "vencido").length;
+  $("nAl").textContent = n; $("nAl").classList.toggle("hide", !n);
+  $("alList").innerHTML = rows.length ? "" : '<div class="empty">Sin alertas: todos los equipos tienen mantenimiento al día.</div>';
+  rows.forEach(({e,i}) => {
+    const d = document.createElement("div"); d.className = "card eq";
+    d.innerHTML = `<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta"><span>${i.prox ? "Próximo: " + esc(i.prox) : "Sin fecha de próximo mantenimiento"}</span></div></div>${badge(i)}`;
+    d.onclick = () => openDet(e); $("alList").appendChild(d);
   });
+}
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
+  $("pEq").classList.toggle("hide", b.dataset.t !== "eq"); $("pAl").classList.toggle("hide", b.dataset.t !== "al");
+});
+
+/* ---------- Detalle e historial ---------- */
+function openDet(e){
+  if(!e){ $("dDet").close(); return; }
+  current = e; const i = info(idOf(e));
+  $("tDet").textContent = nameOf(e); $("bDet").className = "badge b-" + i.st; $("bDet").textContent = i.txt;
+  $("kvDet").innerHTML = headers.map(h => `<dt>${esc(h)}</dt><dd>${esc(fmt(e[h])) || "—"}</dd>`).join("");
+  $("hDet").innerHTML = i.h.length ? i.h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(m.fecha)}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(m.proximaFecha) : ""}</small>${esc(m.descripcion)}${m.evidencia ? ` <a href="${esc(m.evidencia)}" target="_blank" rel="noopener">Ver evidencia</a>` : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
+  if(!$("dDet").open) $("dDet").showModal();
+}
+$("aClose").onclick = () => $("dDet").close();
+$("aMant").onclick = () => {
+  fileData = null; $("dEqN").textContent = `${idOf(current)} · ${nameOf(current)}`;
+  $("fecha").value = today(); ["prox","desc","file"].forEach(k => $(k).value = ""); $("fprev").innerHTML = ""; $("eSave").textContent = ""; $("dlg").showModal();
+};
+$("cancel").onclick = () => $("dlg").close();
+
+/* ---------- Equipo: nuevo / editar / eliminar ---------- */
+function openEq(e){
+  editing = e || null; $("tEq").textContent = e ? "Editar equipo" : "Nuevo equipo"; $("eEq").textContent = "";
+  $("fEq").innerHTML = headers.map((h,k) => `<label for="f${k}">${esc(h)}${k === 0 ? " (código único)" : ""}</label><input id="f${k}" value="${esc(e ? fmt(e[h]) : "")}" ${e && k === 0 ? "readonly" : ""}>`).join("");
+  $("dEq").showModal();
+}
+$("new").onclick = () => openEq(null);
+$("aEdit").onclick = () => openEq(current);
+$("cEq").onclick = () => $("dEq").close();
+$("sEq").onclick = async () => {
+  const eq = {}; headers.forEach((h,k) => eq[h] = $("f" + k).value.trim());
+  if(!eq[headers[0]]){ $("eEq").textContent = "El código del equipo es obligatorio."; return; }
+  $("sEq").disabled = true;
+  try{
+    const r = await post({action:"saveEquipo", equipo:eq, idOriginal: editing ? idOf(editing) : ""});
+    if(r.status === "success"){ $("dEq").close(); toast("Equipo guardado"); await loadAll(); }
+    else $("eEq").textContent = r.message || "No se pudo guardar.";
+  }catch(e){ $("eEq").textContent = "Error de conexión. Intenta de nuevo."; }
+  finally{ $("sEq").disabled = false; }
+};
+$("aDel").onclick = async () => {
+  const n = info(idOf(current)).h.length;
+  if(!confirm(`¿Eliminar el equipo ${idOf(current)} (${nameOf(current)})?` + (n ? `\nSus ${n} registros de mantenimiento se conservan en la hoja.` : ""))) return;
+  try{
+    const r = await post({action:"deleteEquipo", idEquipo:idOf(current)});
+    if(r.status === "success"){ $("dDet").close(); toast("Equipo eliminado"); loadAll(); } else toast(r.message || "No se pudo eliminar", true);
+  }catch(e){ toast("Error de conexión", true); }
+};
+
+/* ---------- Registrar mantenimiento ---------- */
+const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+async function shrink(f){
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(f); });
+  const s = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+  c.width = img.width * s; c.height = img.height * s; c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  URL.revokeObjectURL(img.src); return c.toDataURL("image/jpeg", .8);
+}
+$("file").onchange = async () => {
+  const f = $("file").files[0]; fileData = null; $("fprev").innerHTML = ""; if(!f) return;
+  if(f.size > 12*1024*1024){ $("eSave").textContent = "El archivo pesa más de 12 MB."; $("file").value = ""; return; }
+  $("eSave").textContent = "";
+  try{
+    if(f.type.startsWith("image/")){ const data = await shrink(f); fileData = {data, type:"image/jpeg", name:f.name.replace(/\.\w+$/, "") + ".jpg"}; $("fprev").innerHTML = `Imagen lista<img src="${data}" alt="Vista previa de la evidencia">`; }
+    else { fileData = {data:await readURL(f), type:f.type, name:f.name}; $("fprev").textContent = "Archivo listo: " + f.name; }
+  }catch(e){ $("eSave").textContent = "No se pudo leer el archivo."; }
+};
+$("save").onclick = async () => {
+  $("eSave").textContent = "";
+  if(!$("desc").value.trim()){ $("eSave").textContent = "Describe el trabajo realizado."; return; }
+  if($("prox").value && $("prox").value < $("fecha").value){ $("eSave").textContent = "La próxima fecha no puede ser anterior a la fecha realizada."; return; }
+  $("save").disabled = true; $("save").textContent = "Guardando…";
+  const b = {action:"save", fecha:$("fecha").value, idEquipo:idOf(current), tipo:$("tipo").value, descripcion:$("desc").value.trim(), proximaFecha:$("prox").value};
+  if(fileData){ b.fileBase64 = fileData.data; b.fileMimeType = fileData.type; b.fileName = fileData.name; }
+  try{
+    const r = await post(b);
+    if(r.status === "success"){ $("dlg").close(); toast("Registro guardado"); await loadAll(); } else $("eSave").textContent = r.message || "No se pudo guardar.";
+  }catch(e){ $("eSave").textContent = "Error de conexión. Tus datos siguen aquí; intenta de nuevo."; }
+  finally{ $("save").disabled = false; $("save").textContent = "Guardar registro"; }
+};
+
+/* ---------- Informe técnico (imprimir / guardar como PDF) ---------- */
+$("aRep").onclick = () => {
+  const e = current, i = info(idOf(e));
+  $("report").innerHTML = `<h1>${esc(INSTITUCION)}</h1><div>Emitido el ${today()} por ${esc(user.nombre)}</div>
+  <h2>Datos del equipo</h2><table>${headers.map(h => `<tr><th style="width:28%">${esc(h)}</th><td>${esc(fmt(e[h])) || "—"}</td></tr>`).join("")}</table>
+  <h2>Resumen</h2><table><tr><th>Mantenimientos registrados</th><td>${i.h.length}</td><th>Último</th><td>${i.last ? esc(i.last.fecha) + " (" + esc(i.last.tipo) + ")" : "—"}</td></tr>
+  <tr><th>Próximo programado</th><td>${esc(i.prox) || "—"}</td><th>Estado</th><td>${esc(i.txt)}</td></tr></table>
+  <h2>Historial de mantenimientos</h2>${i.h.length ? `<table><tr><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Descripción</th><th>Próximo</th></tr>${i.h.map(m => `<tr><td>${esc(m.fecha)}</td><td>${esc(m.tipo)}</td><td>${esc(m.tecnico)}</td><td>${esc(m.descripcion)}${m.evidencia ? `<br>Evidencia: ${esc(m.evidencia)}` : ""}</td><td>${esc(m.proximaFecha) || "—"}</td></tr>`).join("")}</table>` : "<p>Sin mantenimientos registrados.</p>"}
+  <div class="sig"><div>Técnico responsable</div><div>Jefe de área</div></div>`;
+  document.title = "Informe " + idOf(e);
+  document.body.classList.add("printing"); window.print();
+};
+window.addEventListener("afterprint", () => { document.body.classList.remove("printing"); document.title = "Mantenimiento de equipos"; });
+
+/* ---------- Inicio ---------- */
+try{ const s = JSON.parse(sess.get("s") || "null"); if(s && apiUrl()){ user = s.user; pass = s.pass; enter(); } }catch(e){}
 </script>
-
 </body>
 </html>
