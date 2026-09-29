@@ -97,7 +97,12 @@ dialog::backdrop{background:#12333a99}
         <button class="btn sec" id="scan">Escanear QR / barras</button>
         <button class="btn" id="new">Nuevo equipo</button>
         <button class="btn sec" id="reload">Actualizar</button>
+        <select id="flt" aria-label="Filtrar equipos" style="width:auto">
+          <option value="">Todos los estados</option><option value="mv">Mantenimiento vencido</option><option value="mp">Mantenimiento por vencer</option>
+          <option value="ms">Sin mantenimiento programado</option><option value="vv">Vida útil superada</option><option value="vp">Vida útil por vencer</option>
+        </select>
       </div>
+      <div class="prev" id="cnt" style="margin:0 0 8px"></div>
       <div class="list" id="list"></div>
     </div>
     <div id="pAl" class="hide"><div class="list" id="alList"></div></div>
@@ -173,7 +178,7 @@ const wrap = s => ({
   del(k){ try{ s.removeItem(k) }catch(e){} }
 });
 const store = wrap(localStorage), sess = wrap(sessionStorage);
-let user = null, pass = "", equipos = [], mants = [], current = null, editing = null, files = [], imgNew = null, imgQuit = false;
+let user = null, pass = "", equipos = [], byId = new Map(), res = {}, hist = new Map(), current = null, editing = null, files = [], imgNew = null, imgQuit = false;
 
 const apiUrl = () => ($("url").value.trim() || store.get("apiUrl") || DEFAULT_URL);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -222,23 +227,60 @@ $("bLogin").onclick = async () => {
   finally{ $("bLogin").disabled = false; }
 };
 [$("dni"),$("pw")].forEach(i => i.addEventListener("keydown", e => { if(e.key === "Enter") $("bLogin").click(); }));
-function logout(){ sess.del("s"); user = null; pass = ""; $("pw").value = ""; show(false); }
+function logout(){ sess.del("s"); sess.del("c_eq"); sess.del("c_rs"); hist.clear(); user = null; pass = ""; $("pw").value = ""; show(false); }
 $("out").onclick = logout;
 function show(on){ $("vLogin").classList.toggle("hide", on); $("vApp").classList.toggle("hide", !on); $("out").classList.toggle("hide", !on); $("who").textContent = on ? user.nombre : ""; }
 function enter(){ show(true); loadAll(); }
 
 /* ---------- Datos ---------- */
-async function loadAll(){
-  $("list").innerHTML = '<div class="empty">Cargando…</div>';
-  try{
-    const [eq, m] = await Promise.all([fetch(apiUrl() + "?action=getEquipos").then(r => r.json()), post({action:"getMantenimientos"})]);
-    equipos = Array.isArray(eq) ? eq : [];
-    mants = m.status === "success" ? m.data : [];
-    render(); renderAlerts();
-    if($("dDet").open && current) openDet(equipos.find(e => String(idOf(e)) === String(idOf(current))));
-  }catch(e){ $("list").innerHTML = '<div class="empty">No se pudo cargar. Toca Actualizar para reintentar.</div>'; }
+const pack = o => { o._s = SEARCH.map(h => o[h] ?? "").join(" ").toLowerCase(); return o; };
+function setEquipos(list){ equipos = list.map(pack); byId = new Map(equipos.map(e => [String(e.ID_Equipo), e])); }
+function derive(){ equipos.forEach(e => { e._v = vida(e); e._i = info(e.ID_Equipo); }); }
+// Acepta el formato compacto {h:[columnas], r:[filas]} y el formato anterior (lista de objetos)
+function unpack(j){
+  if(Array.isArray(j)) return j;
+  if(!j || !Array.isArray(j.h) || !Array.isArray(j.r)) return null;
+  const n = j.h.length, out = new Array(j.r.length);
+  for(let a = 0; a < j.r.length; a++){ const o = {}, r = j.r[a]; for(let k = 0; k < n; k++) o[j.h[k]] = r[k]; out[a] = o; }
+  return out;
 }
-$("reload").onclick = loadAll;
+function refresh(){ render(); renderAlerts(); }
+// Muestra al instante lo último cargado en esta sesión y actualiza en segundo plano.
+// force = true (botón Actualizar) ignora las cachés, incluida la del servidor.
+async function loadAll(force){
+  let shown = false;
+  if(!force){
+    try{ const c = sess.get("c_eq"), r = sess.get("c_rs");
+      if(c){ setEquipos(unpack(JSON.parse(c)) || []); res = r ? JSON.parse(r) : {}; derive(); refresh(); shown = true; } }catch(e){}
+  }
+  if(!shown) $("list").innerHTML = '<div class="empty">Cargando…</div>';
+  try{
+    const [eqT, rs] = await Promise.all([fetch(apiUrl() + "?action=getEquipos" + (force ? "&fresh=1" : "")).then(r => r.text()), post({action:"getResumen", fresh:!!force})]);
+    const lista = unpack(JSON.parse(eqT));
+    if(!lista) throw new Error("formato");
+    setEquipos(lista); res = rs.status === "success" ? rs.data : {};
+    sess.set("c_eq", eqT); sess.set("c_rs", JSON.stringify(res));
+    if(force) hist.clear();
+    derive(); refresh();
+    if($("dDet").open && current) openDet(byId.get(String(idOf(current))));
+  }catch(e){
+    if(shown) toast("Sin conexión: se muestran los últimos datos cargados.", true);
+    else $("list").innerHTML = '<div class="empty">No se pudo cargar. Toca Actualizar para reintentar.</div>';
+  }
+}
+$("reload").onclick = () => loadAll(true);
+
+// Cambios locales tras guardar/eliminar: no hace falta recargar toda la lista
+function upsertEquipo(o){
+  pack(o); o._v = vida(o); const k = String(idOf(o)), old = byId.get(k); o._i = info(k);
+  if(old) equipos[equipos.indexOf(old)] = o; else equipos.push(o);
+  byId.set(k, o); sess.del("c_eq"); refresh();
+  if($("dDet").open && current && String(idOf(current)) === k) openDet(o);
+}
+function removeEquipo(id){
+  const k = String(id), old = byId.get(k); if(!old) return;
+  equipos.splice(equipos.indexOf(old), 1); byId.delete(k); sess.del("c_eq"); refresh();
+}
 
 const idOf = e => e.ID_Equipo;
 const nameOf = e => e.Denominacion || "(sin denominación)";
@@ -280,45 +322,64 @@ function datos(e){
 }
 
 function info(id){
-  const h = mants.filter(m => String(m.idEquipo) === String(id)).sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
-  const prox = h[0] ? String(h[0].proximaFecha || "").slice(0,10) : "";
+  const r = res[String(id)], prox = r ? String(r.p || "").slice(0,10) : "";
   let st = "sin", txt = "Sin programar";
   if(prox){ const d = days(prox);
     if(d < 0){ st = "vencido"; txt = `Vencido hace ${-d} d`; } else if(d <= 30){ st = "proximo"; txt = d === 0 ? "Vence hoy" : `En ${d} d`; } else { st = "ok"; txt = "Al día"; } }
-  return {h, last:h[0], prox, st, txt};
+  return {n: r ? r.n : 0, last: r ? {fecha:r.f, tipo:r.t} : null, prox, st, txt};
 }
 const evUrls = m => String(m.evidencia || "").split(/\s+/).filter(u => /^https?:\/\//.test(u));
 const evLinks = m => { const u = evUrls(m); return u.map((x, k) => `<a href="${esc(x)}" target="_blank" rel="noopener">${u.length > 1 ? "Evidencia " + (k + 1) : "Ver evidencia"}</a>`).join(" · "); };
 const badge = i => `<span class="badge b-${i.st}">${esc(i.txt)}</span>`;
 
 /* ---------- Lista y alertas ---------- */
-$("q").oninput = render;
+// Dibuja de a 50 y carga más al llegar al final: la lista sigue fluida con miles de equipos
+function paged(box, items, make, size = 50){
+  if(box._io) box._io.disconnect();
+  box.innerHTML = ""; let n = 0;
+  const more = document.createElement("button"); more.className = "btn sec";
+  const io = box._io = ("IntersectionObserver" in window) ? new IntersectionObserver(en => { if(en[0].isIntersecting) next(); }, {rootMargin:"600px"}) : null;
+  function next(){
+    more.remove(); const frag = document.createDocumentFragment();
+    items.slice(n, n + size).forEach(x => frag.appendChild(make(x))); n += size; box.appendChild(frag);
+    if(n < items.length){ more.textContent = `Mostrar más (${items.length - n} restantes)`; box.appendChild(more); if(io){ io.unobserve(more); io.observe(more); } }
+    else if(io) io.disconnect();
+  }
+  more.onclick = next; next();
+}
+function mkCard(e){
+  const i = e._i, v = e._v, d = document.createElement("div"); d.className = "card eq";
+  const meta = ["Marca","Modelo","Ubicacion"].filter(h => e[h] !== "" && e[h] != null).map(h => `<span>${esc(lbl(h))}: ${esc(e[h])}</span>`);
+  if(v.edad) meta.push(`<span>Edad: ${esc(v.edad)}</span>`);
+  d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta">${meta.join("")}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
+  d.onclick = () => openDet(e); return d;
+}
+function mkAlert(e){
+  const i = e._i, v = e._v, d = document.createElement("div"); d.className = "card eq";
+  d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta"><span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span>${vBadge(v) ? `<span>${esc(v.txt)} · Edad ${esc(v.edad)}</span>` : ""}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
+  d.onclick = () => openDet(e); return d;
+}
+const FILTROS = {mv:e => e._i.st === "vencido", mp:e => e._i.st === "proximo", ms:e => e._i.st === "sin", vv:e => e._v.st === "vencido", vp:e => e._v.st === "proximo"};
+$("q").oninput = () => { clearTimeout(render.t); render.t = setTimeout(render, 150); };
+$("flt").onchange = render;
 function render(){
-  const q = $("q").value.trim().toLowerCase();
-  const rows = equipos.filter(e => !q || SEARCH.some(h => String(e[h] ?? "").toLowerCase().includes(q)));
-  $("list").innerHTML = rows.length ? "" : `<div class="empty">${equipos.length ? "Ningún equipo coincide con la búsqueda." : "Aún no hay equipos. Usa «Nuevo equipo» para agregar el primero."}</div>`;
-  rows.forEach(e => {
-    const i = info(idOf(e)), v = vida(e), d = document.createElement("div"); d.className = "card eq";
-    const meta = ["Marca","Modelo","Ubicacion"].filter(h => e[h] !== "" && e[h] != null).map(h => `<span>${esc(lbl(h))}: ${esc(e[h])}</span>`);
-    if(v.edad) meta.push(`<span>Edad: ${esc(v.edad)}</span>`);
-    d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta">${meta.join("")}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
-    d.onclick = () => openDet(e); $("list").appendChild(d);
-  });
+  const terms = $("q").value.trim().toLowerCase().split(/\s+/).filter(Boolean), f = FILTROS[$("flt").value];
+  const rows = equipos.filter(e => (!f || f(e)) && terms.every(w => e._s.includes(w)));
+  $("cnt").textContent = equipos.length ? (rows.length === equipos.length ? `${equipos.length} equipos` : `${rows.length} de ${equipos.length} equipos`) : "";
+  if(!rows.length){
+    if($("list")._io) $("list")._io.disconnect();
+    $("list").innerHTML = `<div class="empty">${equipos.length ? "Ningún equipo coincide con la búsqueda." : "Aún no hay equipos. Usa «Nuevo equipo» para agregar el primero."}</div>`; return;
+  }
+  paged($("list"), rows, mkCard);
 }
 function renderAlerts(){
-  const all = equipos.map(e => ({e, i:info(idOf(e)), v:vida(e)}));
-  const ord = {vencido:0, proximo:1, sin:2};
-  const vOrd = v => v.st === "vencido" ? 0 : v.st === "proximo" ? 1 : 9;
-  const rank = x => Math.min(ord[x.i.st] ?? 9, vOrd(x.v));
-  const rows = all.filter(x => rank(x) < 9).sort((a,b) => rank(a) - rank(b) || String(a.i.prox).localeCompare(String(b.i.prox)));
-  const n = all.filter(x => x.i.st === "vencido" || x.v.st === "vencido").length;
+  const ord = {vencido:0, proximo:1, sin:2}, vOrd = v => v.st === "vencido" ? 0 : v.st === "proximo" ? 1 : 9;
+  const rank = e => Math.min(ord[e._i.st] ?? 9, vOrd(e._v));
+  const rows = equipos.filter(e => rank(e) < 9).sort((a,b) => rank(a) - rank(b) || String(a._i.prox).localeCompare(String(b._i.prox)));
+  const n = equipos.reduce((c, e) => c + (e._i.st === "vencido" || e._v.st === "vencido" ? 1 : 0), 0);
   $("nAl").textContent = n; $("nAl").classList.toggle("hide", !n);
-  $("alList").innerHTML = rows.length ? "" : '<div class="empty">Sin alertas: todos los equipos tienen mantenimiento al día.</div>';
-  rows.forEach(({e,i,v}) => {
-    const d = document.createElement("div"); d.className = "card eq";
-    d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta"><span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span>${vBadge(v) ? `<span>${esc(v.txt)} · Edad ${esc(v.edad)}</span>` : ""}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
-    d.onclick = () => openDet(e); $("alList").appendChild(d);
-  });
+  if(!rows.length){ if($("alList")._io) $("alList")._io.disconnect(); $("alList").innerHTML = '<div class="empty">Sin alertas: todos los equipos tienen mantenimiento al día.</div>'; return; }
+  paged($("alList"), rows, mkAlert);
 }
 document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
@@ -326,14 +387,28 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
 });
 
 /* ---------- Detalle e historial ---------- */
+async function loadHist(id){
+  const k = String(id); if(hist.has(k)) return hist.get(k);
+  const r = await post({action:"getHistorial", idEquipo:id});
+  if(r.status !== "success") throw new Error(r.message || "error");
+  hist.set(k, r.data); return r.data;
+}
+const histHTML = h => h.length ? h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small>${esc(m.descripcion)}${evUrls(m).length ? " " + evLinks(m) : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
 function openDet(e){
   if(!e){ $("dDet").close(); return; }
-  current = e; const i = info(idOf(e));
+  current = e; const i = e._i, k = String(idOf(e));
   $("tDet").textContent = nameOf(e); $("bDet").className = "badge b-" + i.st; $("bDet").textContent = i.txt;
-  const v = vida(e); $("bVida").className = "badge b-" + v.st + (v.st === "sin" ? " hide" : ""); $("bVida").textContent = v.txt;
+  const v = e._v; $("bVida").className = "badge b-" + v.st + (v.st === "sin" ? " hide" : ""); $("bVida").textContent = v.txt;
   $("imgDet").classList.toggle("hide", !e.Imagen); if(e.Imagen) $("imgDet").src = imgSrc(e.Imagen, 600);
   $("kvDet").innerHTML = datos(e).map(([k,x]) => `<dt>${esc(k)}</dt><dd>${esc(x) || "—"}</dd>`).join("");
-  $("hDet").innerHTML = i.h.length ? i.h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small>${esc(m.descripcion)}${evUrls(m).length ? " " + evLinks(m) : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
+  // El historial se pide solo al abrir la ficha (y solo si el equipo tiene registros)
+  if(hist.has(k)) $("hDet").innerHTML = histHTML(hist.get(k));
+  else if(!i.n) $("hDet").innerHTML = histHTML([]);
+  else {
+    $("hDet").innerHTML = '<div class="empty">Cargando historial…</div>';
+    loadHist(k).then(h => { if(current === e) $("hDet").innerHTML = histHTML(h); })
+      .catch(() => { if(current === e) $("hDet").innerHTML = '<div class="empty">No se pudo cargar el historial. Cierra y vuelve a abrir la ficha.</div>'; });
+  }
   if(!$("dDet").open) $("dDet").showModal();
 }
 $("aClose").onclick = () => $("dDet").close();
@@ -383,17 +458,20 @@ $("sEq").onclick = async () => {
   $("sEq").disabled = true; $("eEq").textContent = imgNew ? "Guardando imagen…" : "";
   try{
     const r = await post(b);
-    if(r.status === "success"){ $("dEq").close(); toast("Equipo guardado"); await loadAll(); }
+    if(r.status === "success"){
+      $("dEq").close(); toast("Equipo guardado");
+      if(r.equipo){ const nuevo = !editing; upsertEquipo(r.equipo); if(nuevo){ $("q").value = String(eq.ID_Equipo); $("flt").value = ""; render(); } } else await loadAll(true);
+    }
     else $("eEq").textContent = r.message || "No se pudo guardar.";
   }catch(e){ $("eEq").textContent = "Error de conexión. Intenta de nuevo."; }
   finally{ $("sEq").disabled = false; }
 };
 $("aDel").onclick = async () => {
-  const n = info(idOf(current)).h.length;
+  const n = current._i.n;
   if(!confirm(`¿Eliminar el equipo ${idOf(current)} (${nameOf(current)})?` + (n ? `\nSus ${n} registros de mantenimiento se conservan en la hoja.` : ""))) return;
   try{
     const r = await post({action:"deleteEquipo", idEquipo:idOf(current)});
-    if(r.status === "success"){ $("dDet").close(); toast("Equipo eliminado"); loadAll(); } else toast(r.message || "No se pudo eliminar", true);
+    if(r.status === "success"){ $("dDet").close(); toast("Equipo eliminado"); removeEquipo(idOf(current)); } else toast(r.message || "No se pudo eliminar", true);
   }catch(e){ toast("Error de conexión", true); }
 };
 
@@ -438,19 +516,26 @@ $("save").onclick = async () => {
   if(files.length) b.files = files.map(f => ({data:f.data, type:f.type, name:f.name}));
   try{
     const r = await post(b);
-    if(r.status === "success"){ $("dlg").close(); toast("Registro guardado"); await loadAll(); } else $("eSave").textContent = r.message || "No se pudo guardar.";
+    if(r.status === "success"){
+      $("dlg").close(); toast("Registro guardado");
+      // Actualiza el resumen localmente (sin recargar todo)
+      const k = String(idOf(current)), x = res[k], np = b.proximaFecha || "";
+      if(!x) res[k] = {f:b.fecha, t:b.tipo, p:np, n:1}; else { x.n++; if(b.fecha > x.f){ x.f = b.fecha; x.t = b.tipo; x.p = np; } }
+      current._i = info(k); hist.delete(k); sess.del("c_rs"); refresh(); openDet(current);
+    } else $("eSave").textContent = r.message || "No se pudo guardar.";
   }catch(e){ $("eSave").textContent = "Error de conexión. Tus datos siguen aquí; intenta de nuevo."; }
   finally{ $("save").disabled = false; $("save").textContent = "Guardar registro"; }
 };
 
 /* ---------- Informe técnico (imprimir / guardar como PDF) ---------- */
-$("aRep").onclick = () => {
-  const e = current, i = info(idOf(e));
+$("aRep").onclick = async () => {
+  const e = current, i = e._i; let h = [];
+  try{ if(i.n) h = await loadHist(idOf(e)); }catch(err){ toast("No se pudo cargar el historial para el informe", true); return; }
   $("report").innerHTML = `<h1>${esc(INSTITUCION)}</h1><div>Emitido el ${fmt(nowLocal())} por ${esc(user.nombre)}</div>
   <h2>Datos del equipo</h2>${e.Imagen ? `<img src="${esc(imgSrc(e.Imagen, 600))}" style="max-height:110px;float:right;margin:0 0 8px 10px" alt="">` : ""}<table style="width:${e.Imagen ? "75%" : "100%"}">${datos(e).map(([k,x]) => `<tr><th style="width:36%">${esc(k)}</th><td>${esc(x) || "—"}</td></tr>`).join("")}</table><div style="clear:both"></div>
-  <h2>Resumen</h2><table><tr><th>Mantenimientos registrados</th><td>${i.h.length}</td><th>Último</th><td>${i.last ? esc(fmt(i.last.fecha)) + " (" + esc(i.last.tipo) + ")" : "—"}</td></tr>
+  <h2>Resumen</h2><table><tr><th>Mantenimientos registrados</th><td>${h.length}</td><th>Último</th><td>${i.last ? esc(fmt(i.last.fecha)) + " (" + esc(i.last.tipo) + ")" : "—"}</td></tr>
   <tr><th>Próximo programado</th><td>${esc(fmt(i.prox)) || "—"}</td><th>Estado</th><td>${esc(i.txt)}</td></tr></table>
-  <h2>Historial de mantenimientos</h2>${i.h.length ? `<table><tr><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Descripción</th><th>Próximo</th></tr>${i.h.map(m => `<tr><td>${esc(fmt(m.fecha))}</td><td>${esc(m.tipo)}</td><td>${esc(m.tecnico)}</td><td>${esc(m.descripcion)}${evUrls(m).length ? `<br>Evidencia: ${evUrls(m).map(esc).join("<br>")}` : ""}</td><td>${esc(fmt(m.proximaFecha)) || "—"}</td></tr>`).join("")}</table>` : "<p>Sin mantenimientos registrados.</p>"}
+  <h2>Historial de mantenimientos</h2>${h.length ? `<table><tr><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Descripción</th><th>Próximo</th></tr>${h.map(m => `<tr><td>${esc(fmt(m.fecha))}</td><td>${esc(m.tipo)}</td><td>${esc(m.tecnico)}</td><td>${esc(m.descripcion)}${evUrls(m).length ? `<br>Evidencia: ${evUrls(m).map(esc).join("<br>")}` : ""}</td><td>${esc(fmt(m.proximaFecha)) || "—"}</td></tr>`).join("")}</table>` : "<p>Sin mantenimientos registrados.</p>"}
   <div class="sig"><div>Técnico responsable</div><div>Jefe de área</div></div>`;
   document.title = "Informe " + idOf(e);
   document.body.classList.add("printing"); window.print();
@@ -470,7 +555,7 @@ async function stopScan(){
 async function onCode(text){
   await stopScan(); navigator.vibrate && navigator.vibrate(60);
   const t = String(text).trim(), low = t.toLowerCase();
-  const hit = equipos.find(e => SEARCH.some(h => String(e[h] ?? "").trim().toLowerCase() === low))
+  const hit = byId.get(t) || equipos.find(e => SEARCH.some(h => String(e[h] ?? "").trim().toLowerCase() === low))
            || equipos.find(e => String(idOf(e)) && low.includes(String(idOf(e)).toLowerCase()));
   document.querySelector('.tab[data-t="eq"]').click();
   $("q").value = hit ? String(idOf(hit)) : t; render();
