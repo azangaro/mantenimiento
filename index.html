@@ -33,9 +33,11 @@ input[readonly]{background:#eef3f3}
 .bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.bar input{flex:1;min-width:160px}#reader{width:100%;min-height:200px}
 .list{display:grid;gap:8px}
 .eq{display:flex;gap:12px;align-items:center;justify-content:space-between;cursor:pointer}
-.eq-thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:#eef3f3;flex-shrink:0}
-.eq-left{display:flex;gap:12px;align-items:center}
 .eq b{display:block}.eq small{color:var(--mut)}
+.eq .main{display:flex;gap:12px;align-items:center;min-width:0}
+.bs{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;background:#eef3f3;flex:none;border:1px solid var(--line)}
+.hero{width:100%;max-height:220px;object-fit:contain;background:#eef3f3;border-radius:8px;margin-top:10px;display:block}
 .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mut);margin-top:4px}
 .badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;border:1px solid}
 .b-vencido{color:var(--bad);border-color:var(--bad)}.b-proximo{color:var(--warn);border-color:var(--warn)}
@@ -46,7 +48,7 @@ dialog{border:0;border-radius:10px;padding:18px;width:min(620px,95vw);max-height
 dialog::backdrop{background:#12333a99}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
-.kv{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;font-size:14px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:4px 10px;font-size:14px}
 .kv dt{color:var(--mut)}.kv dd{margin:0}
 .hist{border-left:3px solid var(--acc);padding:2px 0 2px 10px;margin:10px 0}
 .hist small{color:var(--mut);display:block}
@@ -91,7 +93,7 @@ dialog::backdrop{background:#12333a99}
     </div>
     <div id="pEq">
       <div class="bar">
-        <input id="q" type="search" placeholder="Buscar por código, denominación, marca..." aria-label="Buscar equipo">
+        <input id="q" type="search" placeholder="Buscar por código, denominación, ubicación…" aria-label="Buscar equipo">
         <button class="btn sec" id="scan">Escanear QR / barras</button>
         <button class="btn" id="new">Nuevo equipo</button>
         <button class="btn sec" id="reload">Actualizar</button>
@@ -103,13 +105,9 @@ dialog::backdrop{background:#12333a99}
 </main>
 
 <dialog id="dDet">
-  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
-    <img id="imgDet" class="eq-thumb hide" alt="Foto equipo">
-    <div>
-      <h2 style="margin:0" id="tDet"></h2>
-      <span class="badge" id="bDet"></span>
-    </div>
-  </div>
+  <h2 style="margin:0" id="tDet"></h2>
+  <span class="badge" id="bDet"></span> <span class="badge hide" id="bVida"></span>
+  <img class="hero hide" id="imgDet" alt="Imagen del equipo">
   <dl class="kv" id="kvDet" style="margin-top:12px"></dl>
   <h3>Historial de mantenimientos</h3>
   <div id="hDet"></div>
@@ -125,9 +123,6 @@ dialog::backdrop{background:#12333a99}
 <dialog id="dEq">
   <h2 style="margin:0" id="tEq"></h2>
   <div id="fEq"></div>
-  <label for="fImg">Imagen / Foto del Equipo</label>
-  <input id="fImg" type="file" accept="image/*">
-  <div class="prev" id="imgPrev"></div>
   <div class="err" id="eEq"></div>
   <div class="actions"><button class="btn sec" id="cEq">Cancelar</button><button class="btn" id="sEq">Guardar equipo</button></div>
 </dialog>
@@ -161,9 +156,15 @@ dialog::backdrop{background:#12333a99}
 <div id="toast" role="status"></div>
 
 <script>
+// URL de tu implementación web de Apps Script (termina en /exec). También se puede pegar en la pantalla de ingreso.
 const DEFAULT_URL = "";
+// Título que aparece en el informe impreso.
 const INSTITUCION = "Informe técnico de equipo";
-const DEF = ["ID_Equipo", "Denominacion", "Marca", "Modelo", "Serie", "Ubicacion", "Fecha_ingreso", "Estado", "Imagen"];
+const COLS = ["ID_Equipo","Denominacion","Marca","Modelo","Serie","Ubicacion","Fecha_ingreso","Vida_util","Estado","Imagen"];
+const LABEL = {ID_Equipo:"ID equipo", Denominacion:"Denominación", Ubicacion:"Ubicación", Fecha_ingreso:"Fecha de ingreso", Vida_util:"Vida útil (años)", Imagen:"Imagen"};
+const lbl = h => LABEL[h] || h;
+const ESTADOS = ["Operativo","En mantenimiento","Inoperativo","De baja"];
+const SEARCH = COLS.filter(h => h !== "Imagen");
 
 const $ = id => document.getElementById(id);
 const wrap = s => ({
@@ -172,7 +173,7 @@ const wrap = s => ({
   del(k){ try{ s.removeItem(k) }catch(e){} }
 });
 const store = wrap(localStorage), sess = wrap(sessionStorage);
-let user = null, pass = "", equipos = [], headers = DEF, mants = [], current = null, editing = null, fileData = null, eqImageData = null;
+let user = null, pass = "", equipos = [], mants = [], current = null, editing = null, fileData = null, imgNew = null, imgQuit = false;
 
 const apiUrl = () => ($("url").value.trim() || store.get("apiUrl") || DEFAULT_URL);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -181,7 +182,7 @@ const nowLocal = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d
 const today = () => nowLocal().slice(0,10);
 const days = d => Math.round((new Date(d + "T00:00:00") - new Date(today() + "T00:00:00")) / 864e5);
 const stamp = v => { v = (v || nowLocal()).replace("T", " "); return v.length === 16 ? v + ":00" : v; };
-
+// Muestra dd/mm/yyyy hh:mm:ss (solo dd/mm/yyyy cuando el valor no trae hora)
 const fmt = v => {
   if(v == null || v === "") return "";
   const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):?(\d{2})?)?/);
@@ -190,29 +191,10 @@ const fmt = v => {
   return `${m[3]}/${m[2]}/${m[1]}` + (t && t !== "00:00:00" ? " " + t : "");
 };
 
-// Cálculo de edad del equipo
-function calcAge(fechaIngreso) {
-  if (!fechaIngreso) return "—";
-  const start = new Date(fechaIngreso);
-  if (isNaN(start.getTime())) return "—";
-  const now = new Date();
-  let years = now.getFullYear() - start.getFullYear();
-  let months = now.getMonth() - start.getMonth();
-  if (months < 0 || (months === 0 && now.getDate() < start.getDate())) {
-    years--;
-    months += 12;
-  }
-  if (years <= 0 && months <= 0) return "Menos de 1 mes";
-  const res = [];
-  if (years > 0) res.push(`${years} año${years > 1 ? 's' : ''}`);
-  if (months > 0) res.push(`${months} mes${months > 1 ? 'es' : ''}`);
-  return res.join(" ");
-}
-
 function toast(m, bad){ const t = $("toast"); t.textContent = m; t.style.background = bad ? "var(--bad)" : "var(--ink)"; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3500); }
 
 async function post(body){
-  const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+  const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, // sin preflight CORS
     body: JSON.stringify({dni:user && user.dni, password:pass, ...body}) });
   const j = await r.json();
   if(j.message === "Sesión no válida"){ logout(); toast("La sesión expiró. Ingresa de nuevo.", true); }
@@ -250,7 +232,7 @@ async function loadAll(){
   $("list").innerHTML = '<div class="empty">Cargando…</div>';
   try{
     const [eq, m] = await Promise.all([fetch(apiUrl() + "?action=getEquipos").then(r => r.json()), post({action:"getMantenimientos"})]);
-    equipos = Array.isArray(eq) ? eq : []; headers = equipos.length ? Object.keys(equipos[0]) : DEF;
+    equipos = Array.isArray(eq) ? eq : [];
     mants = m.status === "success" ? m.data : [];
     render(); renderAlerts();
     if($("dDet").open && current) openDet(equipos.find(e => String(idOf(e)) === String(idOf(current))));
@@ -258,9 +240,44 @@ async function loadAll(){
 }
 $("reload").onclick = loadAll;
 
-const idOf = e => e[headers[0]] || e["ID_Equipo"] || e["ID"];
-const nameOf = e => e["Denominacion"] || e["Nombre"] || e[headers[1]] || "";
-const imgOf = e => e["Imagen"] || "";
+const idOf = e => e.ID_Equipo;
+const nameOf = e => e.Denominacion || "(sin denominación)";
+
+/* ---------- Edad y vida útil ---------- */
+const parseD = v => {
+  if(v == null || v === "") return null;
+  const s = String(v); let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  return m ? new Date(+m[3], +m[2]-1, +m[1]) : null;
+};
+const monthsBetween = (a, b) => { let m = (b.getFullYear()-a.getFullYear())*12 + b.getMonth()-a.getMonth(); if(b.getDate() < a.getDate()) m--; return Math.max(0, m); };
+const span = m => { const y = Math.floor(m/12), r = m % 12, p = []; if(y) p.push(y + (y === 1 ? " año" : " años")); if(r || !y) p.push(r + (r === 1 ? " mes" : " meses")); return p.join(" "); };
+function vida(e){
+  const f = parseD(e.Fecha_ingreso);
+  if(!f) return {st:"sin", edad:"", txt:"Sin fecha de ingreso", det:""};
+  const m = monthsBetween(f, new Date()), edad = span(m);
+  const vu = parseFloat(String(e.Vida_util ?? "").replace(",", "."));
+  if(!(vu > 0)) return {st:"sin", edad, txt:"Sin vida útil definida", det:""};
+  const rest = Math.round(vu * 12) - m;
+  if(rest < 0) return {st:"vencido", edad, txt:"Vida útil superada", det:"Superada por " + span(-rest)};
+  if(rest === 0) return {st:"vencido", edad, txt:"Vida útil cumplida", det:"Cumple su vida útil este mes"};
+  if(rest <= 12) return {st:"proximo", edad, txt:"Vida útil por vencer", det:"Restan " + span(rest)};
+  return {st:"ok", edad, txt:"Vida útil vigente", det:"Restan " + span(rest)};
+}
+const imgSrc = (u, w) => { const m = String(u || "").match(/\/d\/([\w-]+)/); return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w${w}` : String(u || ""); };
+const thumb = e => e.Imagen ? `<img class="thumb" loading="lazy" src="${esc(imgSrc(e.Imagen, 112))}" alt="">` : '<div class="thumb" aria-hidden="true"></div>';
+const vBadge = v => (v.st === "vencido" || v.st === "proximo") ? `<span class="badge b-${v.st}">${esc(v.txt)}</span>` : "";
+function datos(e){
+  const v = vida(e), out = [];
+  COLS.forEach(h => {
+    if(h === "Imagen") return;
+    out.push([lbl(h), fmt(e[h])]);
+    if(h === "Fecha_ingreso") out.push(["Edad", v.edad]);
+    if(h === "Vida_util") out.push(["Estado de vida útil", v.det ? v.txt + " · " + v.det : v.txt]);
+  });
+  return out;
+}
 
 function info(id){
   const h = mants.filter(m => String(m.idEquipo) === String(id)).sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
@@ -276,52 +293,31 @@ const badge = i => `<span class="badge b-${i.st}">${esc(i.txt)}</span>`;
 $("q").oninput = render;
 function render(){
   const q = $("q").value.trim().toLowerCase();
-  const rows = equipos.filter(e => !q || Object.values(e).some(v => String(v).toLowerCase().includes(q)));
+  const rows = equipos.filter(e => !q || SEARCH.some(h => String(e[h] ?? "").toLowerCase().includes(q)));
   $("list").innerHTML = rows.length ? "" : `<div class="empty">${equipos.length ? "Ningún equipo coincide con la búsqueda." : "Aún no hay equipos. Usa «Nuevo equipo» para agregar el primero."}</div>`;
   rows.forEach(e => {
-    const i = info(idOf(e)), d = document.createElement("div"); d.className = "card eq";
-    const imgUrl = imgOf(e);
-    const age = calcAge(e["Fecha_ingreso"]);
-    d.innerHTML = `
-      <div class="eq-left">
-        ${imgUrl ? `<img src="${esc(imgUrl)}" class="eq-thumb" alt="Foto">` : '<div class="eq-thumb"></div>'}
-        <div>
-          <b>${esc(nameOf(e))}</b>
-          <small>ID: ${esc(idOf(e))}${age !== "—" ? ` · Edad: ${esc(age)}` : ""}</small>
-          <div class="meta">
-            ${headers.slice(2, 6).map(h => e[h] ? `<span>${esc(h)}:${esc(fmt(e[h]))}</span>` : "").join("")}
-          </div>
-        </div>
-      </div>
-      ${badge(i)}`;
+    const i = info(idOf(e)), v = vida(e), d = document.createElement("div"); d.className = "card eq";
+    const meta = ["Marca","Modelo","Ubicacion"].filter(h => e[h] !== "" && e[h] != null).map(h => `<span>${esc(lbl(h))}: ${esc(e[h])}</span>`);
+    if(v.edad) meta.push(`<span>Edad: ${esc(v.edad)}</span>`);
+    d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta">${meta.join("")}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
     d.onclick = () => openDet(e); $("list").appendChild(d);
   });
 }
-
 function renderAlerts(){
-  const all = equipos.map(e => ({e, i:info(idOf(e))}));
+  const all = equipos.map(e => ({e, i:info(idOf(e)), v:vida(e)}));
   const ord = {vencido:0, proximo:1, sin:2};
-  const rows = all.filter(x => ord[x.i.st] !== undefined).sort((a,b) => ord[a.i.st] - ord[b.i.st] || String(a.i.prox).localeCompare(String(b.i.prox)));
-  const n = all.filter(x => x.i.st === "vencido").length;
+  const vOrd = v => v.st === "vencido" ? 0 : v.st === "proximo" ? 1 : 9;
+  const rank = x => Math.min(ord[x.i.st] ?? 9, vOrd(x.v));
+  const rows = all.filter(x => rank(x) < 9).sort((a,b) => rank(a) - rank(b) || String(a.i.prox).localeCompare(String(b.i.prox)));
+  const n = all.filter(x => x.i.st === "vencido" || x.v.st === "vencido").length;
   $("nAl").textContent = n; $("nAl").classList.toggle("hide", !n);
   $("alList").innerHTML = rows.length ? "" : '<div class="empty">Sin alertas: todos los equipos tienen mantenimiento al día.</div>';
-  rows.forEach(({e,i}) => {
+  rows.forEach(({e,i,v}) => {
     const d = document.createElement("div"); d.className = "card eq";
-    const imgUrl = imgOf(e);
-    d.innerHTML = `
-      <div class="eq-left">
-        ${imgUrl ? `<img src="${esc(imgUrl)}" class="eq-thumb" alt="Foto">` : '<div class="eq-thumb"></div>'}
-        <div>
-          <b>${esc(nameOf(e))}</b>
-          <small>ID: ${esc(idOf(e))}</small>
-          <div class="meta"><span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span></div>
-        </div>
-      </div>
-      ${badge(i)}`;
+    d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta"><span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span>${vBadge(v) ? `<span>${esc(v.txt)} · Edad ${esc(v.edad)}</span>` : ""}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
     d.onclick = () => openDet(e); $("alList").appendChild(d);
   });
 }
-
 document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
   $("pEq").classList.toggle("hide", b.dataset.t !== "eq"); $("pAl").classList.toggle("hide", b.dataset.t !== "al");
@@ -332,97 +328,64 @@ function openDet(e){
   if(!e){ $("dDet").close(); return; }
   current = e; const i = info(idOf(e));
   $("tDet").textContent = nameOf(e); $("bDet").className = "badge b-" + i.st; $("bDet").textContent = i.txt;
-  
-  const imgUrl = imgOf(e);
-  if (imgUrl) { $("imgDet").src = imgUrl; $("imgDet").classList.remove("hide"); }
-  else { $("imgDet").classList.add("hide"); }
-
-  let fieldsHtml = headers.map(h => {
-    if (h === "Imagen") {
-      return e[h] ? `<dt>Imagen</dt><dd><a href="${esc(e[h])}" target="_blank">Ver imagen</a></dd>` : "";
-    }
-    return `<dt>${esc(h)}</dt><dd>${esc(fmt(e[h])) || "—"}</dd>`;
-  }).join("");
-
-  // Agregar la edad calculada a los detalles
-  fieldsHtml += `<dt>Edad del equipo</dt><dd>${esc(calcAge(e["Fecha_ingreso"]))}</dd>`;
-
-  $("kvDet").innerHTML = fieldsHtml;
+  const v = vida(e); $("bVida").className = "badge b-" + v.st + (v.st === "sin" ? " hide" : ""); $("bVida").textContent = v.txt;
+  $("imgDet").classList.toggle("hide", !e.Imagen); if(e.Imagen) $("imgDet").src = imgSrc(e.Imagen, 600);
+  $("kvDet").innerHTML = datos(e).map(([k,x]) => `<dt>${esc(k)}</dt><dd>${esc(x) || "—"}</dd>`).join("");
   $("hDet").innerHTML = i.h.length ? i.h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small>${esc(m.descripcion)}${m.evidencia ? ` <a href="${esc(m.evidencia)}" target="_blank" rel="noopener">Ver evidencia</a>` : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
   if(!$("dDet").open) $("dDet").showModal();
 }
 $("aClose").onclick = () => $("dDet").close();
 $("aMant").onclick = () => {
-  fileData = null; $("dEqN").textContent = `ID: ${idOf(current)} · ${nameOf(current)}`;
+  fileData = null; $("dEqN").textContent = `${idOf(current)} — ${nameOf(current)}`;
   $("fecha").value = nowLocal().replace(" ", "T"); ["prox","desc","file"].forEach(k => $(k).value = ""); $("fprev").innerHTML = ""; $("eSave").textContent = ""; $("dlg").showModal();
 };
 $("cancel").onclick = () => $("dlg").close();
 
 /* ---------- Equipo: nuevo / editar / eliminar ---------- */
-function openEq(e){
-  editing = e || null; eqImageData = null;
-  $("tEq").textContent = e ? "Editar equipo" : "Nuevo equipo"; $("eEq").textContent = ""; $("fImg").value = ""; $("imgPrev").innerHTML = "";
-  
-  $("fEq").innerHTML = headers.map((h,k) => {
-    if(h === "Imagen") return "";
-    const type = h === "Fecha_ingreso" ? "date" : "text";
-    return `<label for="f${k}">${esc(h)}${k === 0 ? " (código único)" : ""}</label>
-            <input id="f${k}" type="${type}" value="${esc(e ? String(e[h] ?? "").replace(/ 00:00:00$/, "") : "")}" ${e && k === 0 ? "readonly" : ""}>`;
-  }).join("");
-  
-  if (e && imgOf(e)) {
-    $("imgPrev").innerHTML = `<img src="${esc(imgOf(e))}" alt="Imagen actual">`;
-  }
-  
-  $("dEq").showModal();
+const ymd = v => { const d = parseD(v); return d ? `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}` : ""; };
+function showImgPrev(){
+  const src = imgNew ? imgNew.data : (!imgQuit && editing && editing.Imagen ? imgSrc(editing.Imagen, 400) : "");
+  $("imgPrev").innerHTML = src ? `<img src="${esc(src)}" alt="Vista previa de la imagen del equipo">` + (imgNew ? `<div>${Math.round(imgNew.data.length * .75 / 1024)} KB después de comprimir</div>` : "") : "Sin imagen";
+  $("imgDel").classList.toggle("hide", !src);
 }
-
-$("fImg").onchange = async () => {
-  const f = $("fImg").files[0]; eqImageData = null; if(!f) return;
-  try {
-    const data = await shrink(f);
-    eqImageData = {data, type:"image/jpeg", name:f.name.replace(/\.\w+$/, "") + ".jpg"};
-    $("imgPrev").innerHTML = `Imagen seleccionada:<img src="${data}">`;
-  } catch(e) { $("eEq").textContent = "Error al procesar la imagen."; }
-};
-
+function openEq(e){
+  editing = e || null; imgNew = null; imgQuit = false; $("tEq").textContent = e ? "Editar equipo" : "Nuevo equipo"; $("eEq").textContent = "";
+  const v = h => e ? String(e[h] ?? "") : "";
+  const f = (h, extra = "", val = v(h), text = lbl(h)) => `<div><label for="f_${h}">${esc(text)}</label><input id="f_${h}" value="${esc(val)}" ${extra}></div>`;
+  $("fEq").innerHTML = f("ID_Equipo", e ? "readonly" : "", v("ID_Equipo"), "ID equipo (código único)") + f("Denominacion")
+    + `<div class="row">${f("Marca")}${f("Modelo")}</div><div class="row">${f("Serie")}${f("Ubicacion")}</div>`
+    + `<div class="row">${f("Fecha_ingreso", 'type="date"', ymd(v("Fecha_ingreso")))}${f("Vida_util", 'type="number" min="0" step="0.5" inputmode="decimal"', v("Vida_util").replace(",", "."))}</div>`
+    + f("Estado", 'list="estados" autocomplete="off"') + `<datalist id="estados">${ESTADOS.map(x => `<option value="${x}">`).join("")}</datalist>`
+    + `<label for="fImg">Imagen del equipo</label><input id="fImg" type="file" accept="image/*"><div class="prev" id="imgPrev"></div><button type="button" class="btn bad hide" id="imgDel" style="margin-top:8px">Quitar imagen</button>`;
+  $("fImg").onchange = async () => {
+    const file = $("fImg").files[0]; if(!file) return;
+    if(!file.type.startsWith("image/")){ $("eEq").textContent = "Elige un archivo de imagen."; $("fImg").value = ""; return; }
+    $("eEq").textContent = "";
+    try{ imgNew = {data: await shrink(file, 640, .7, 80)}; imgQuit = false; }catch(err){ $("eEq").textContent = "No se pudo leer la imagen."; }
+    showImgPrev();
+  };
+  $("imgDel").onclick = () => { imgNew = null; imgQuit = true; $("fImg").value = ""; showImgPrev(); };
+  showImgPrev(); $("dEq").showModal();
+}
 $("new").onclick = () => openEq(null);
 $("aEdit").onclick = () => openEq(current);
 $("cEq").onclick = () => $("dEq").close();
-
 $("sEq").onclick = async () => {
-  const eq = {}; 
-  headers.forEach((h,k) => {
-    if(h !== "Imagen") {
-      eq[h] = $("f" + k) ? $("f" + k).value.trim() : "";
-    } else if(editing) {
-      eq["Imagen"] = editing["Imagen"] || "";
-    }
-  });
-
-  if(!eq[headers[0]]){ $("eEq").textContent = "El código del equipo es obligatorio."; return; }
-  $("sEq").disabled = true;
-  
-  const payload = {
-    action: "saveEquipo", 
-    equipo: eq, 
-    idOriginal: editing ? idOf(editing) : ""
-  };
-
-  if(eqImageData) {
-    payload.fileBase64 = eqImageData.data;
-    payload.fileMimeType = eqImageData.type;
-    payload.fileName = eqImageData.name;
-  }
-
+  const eq = {}; COLS.forEach(h => { if(h !== "Imagen") eq[h] = $("f_" + h).value.trim(); });
+  if(!eq.ID_Equipo){ $("eEq").textContent = "El código del equipo es obligatorio."; return; }
+  if(!eq.Denominacion){ $("eEq").textContent = "La denominación es obligatoria."; return; }
+  if(eq.Vida_util && !(parseFloat(eq.Vida_util) > 0)){ $("eEq").textContent = "La vida útil debe ser un número de años mayor que 0."; return; }
+  const b = {action:"saveEquipo", equipo:eq, idOriginal: editing ? idOf(editing) : ""};
+  if(imgNew){ b.imagenBase64 = imgNew.data; b.imagenMimeType = "image/jpeg"; }
+  else if(imgQuit && editing && editing.Imagen) b.quitarImagen = true;
+  $("sEq").disabled = true; $("eEq").textContent = imgNew ? "Guardando imagen…" : "";
   try{
-    const r = await post(payload);
+    const r = await post(b);
     if(r.status === "success"){ $("dEq").close(); toast("Equipo guardado"); await loadAll(); }
     else $("eEq").textContent = r.message || "No se pudo guardar.";
   }catch(e){ $("eEq").textContent = "Error de conexión. Intenta de nuevo."; }
   finally{ $("sEq").disabled = false; }
 };
-
 $("aDel").onclick = async () => {
   const n = info(idOf(current)).h.length;
   if(!confirm(`¿Eliminar el equipo ${idOf(current)} (${nameOf(current)})?` + (n ? `\nSus ${n} registros de mantenimiento se conservan en la hoja.` : ""))) return;
@@ -434,23 +397,28 @@ $("aDel").onclick = async () => {
 
 /* ---------- Registrar mantenimiento ---------- */
 const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-async function shrink(f){
-  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(f); });
-  const s = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement("canvas");
-  c.width = img.width * s; c.height = img.height * s; c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-  URL.revokeObjectURL(img.src); return c.toDataURL("image/jpeg", .8);
+// Reduce la imagen (lado máximo en px) y baja la calidad JPEG hasta no superar maxKB
+async function shrink(f, max = 1280, q = .72, maxKB = 250){
+  const url = URL.createObjectURL(f);
+  try{
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement("canvas");
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+    let d = c.toDataURL("image/jpeg", q);
+    while(d.length * .75 > maxKB * 1024 && q > .4){ q -= .08; d = c.toDataURL("image/jpeg", q); }
+    return d;
+  } finally { URL.revokeObjectURL(url); }
 }
-
 $("file").onchange = async () => {
   const f = $("file").files[0]; fileData = null; $("fprev").innerHTML = ""; if(!f) return;
   if(f.size > 12*1024*1024){ $("eSave").textContent = "El archivo pesa más de 12 MB."; $("file").value = ""; return; }
   $("eSave").textContent = "";
   try{
-    if(f.type.startsWith("image/")){ const data = await shrink(f); fileData = {data, type:"image/jpeg", name:f.name.replace(/\.\w+$/, "") + ".jpg"}; $("fprev").innerHTML = `Imagen lista<img src="${data}" alt="Vista previa de la evidencia">`; }
+    if(f.type.startsWith("image/")){ const data = await shrink(f); fileData = {data, type:"image/jpeg", name:f.name.replace(/\.\w+$/, "") + ".jpg"}; $("fprev").innerHTML = `Imagen lista (${Math.round(data.length * .75 / 1024)} KB)<img src="${data}" alt="Vista previa de la evidencia">`; }
     else { fileData = {data:await readURL(f), type:f.type, name:f.name}; $("fprev").textContent = "Archivo listo: " + f.name; }
   }catch(e){ $("eSave").textContent = "No se pudo leer el archivo."; }
 };
-
 $("save").onclick = async () => {
   $("eSave").textContent = "";
   if(!$("desc").value.trim()){ $("eSave").textContent = "Describe el trabajo realizado."; return; }
@@ -469,10 +437,7 @@ $("save").onclick = async () => {
 $("aRep").onclick = () => {
   const e = current, i = info(idOf(e));
   $("report").innerHTML = `<h1>${esc(INSTITUCION)}</h1><div>Emitido el ${fmt(nowLocal())} por ${esc(user.nombre)}</div>
-  <h2>Datos del equipo</h2><table>
-  ${headers.map(h => h !== "Imagen" ? `<tr><th style="width:28%">${esc(h)}</th><td>${esc(fmt(e[h])) || "—"}</td></tr>` : "").join("")}
-  <tr><th>Edad del equipo</th><td>${esc(calcAge(e["Fecha_ingreso"]))}</td></tr>
-  </table>
+  <h2>Datos del equipo</h2>${e.Imagen ? `<img src="${esc(imgSrc(e.Imagen, 600))}" style="max-height:110px;float:right;margin:0 0 8px 10px" alt="">` : ""}<table style="width:${e.Imagen ? "75%" : "100%"}">${datos(e).map(([k,x]) => `<tr><th style="width:36%">${esc(k)}</th><td>${esc(x) || "—"}</td></tr>`).join("")}</table><div style="clear:both"></div>
   <h2>Resumen</h2><table><tr><th>Mantenimientos registrados</th><td>${i.h.length}</td><th>Último</th><td>${i.last ? esc(fmt(i.last.fecha)) + " (" + esc(i.last.tipo) + ")" : "—"}</td></tr>
   <tr><th>Próximo programado</th><td>${esc(fmt(i.prox)) || "—"}</td><th>Estado</th><td>${esc(i.txt)}</td></tr></table>
   <h2>Historial de mantenimientos</h2>${i.h.length ? `<table><tr><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Descripción</th><th>Próximo</th></tr>${i.h.map(m => `<tr><td>${esc(fmt(m.fecha))}</td><td>${esc(m.tipo)}</td><td>${esc(m.tecnico)}</td><td>${esc(m.descripcion)}${m.evidencia ? `<br>Evidencia: ${esc(m.evidencia)}` : ""}</td><td>${esc(fmt(m.proximaFecha)) || "—"}</td></tr>`).join("")}</table>` : "<p>Sin mantenimientos registrados.</p>"}
@@ -495,7 +460,7 @@ async function stopScan(){
 async function onCode(text){
   await stopScan(); navigator.vibrate && navigator.vibrate(60);
   const t = String(text).trim(), low = t.toLowerCase();
-  const hit = equipos.find(e => Object.values(e).some(v => String(v).trim().toLowerCase() === low))
+  const hit = equipos.find(e => SEARCH.some(h => String(e[h] ?? "").trim().toLowerCase() === low))
            || equipos.find(e => String(idOf(e)) && low.includes(String(idOf(e)).toLowerCase()));
   document.querySelector('.tab[data-t="eq"]').click();
   $("q").value = hit ? String(idOf(hit)) : t; render();
