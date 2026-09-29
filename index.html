@@ -3,87 +3,428 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mantenimiento de equipos</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Mantenimiento de Equipos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#12333a;--bg:#f3f6f6;--line:#d5e0e0;--mut:#5d7478;--acc:#0e6b73;--ok:#2f7d5b;--warn:#b86e00;--bad:#b3352b}
-*{box-sizing:border-box}
-body{margin:0;font:15px/1.45 "IBM Plex Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-button,input,select,textarea{font:inherit;color:inherit}
-header{background:var(--ink);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
-header h1{font-size:17px;margin:0;font-weight:600;flex:1}
-header span{font-size:13px;opacity:.8}
-main{max-width:800px;margin:0 auto;padding:16px}
-.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px}
-label{display:block;font-size:13px;font-weight:500;margin:12px 0 4px}
-input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:#fff}
-input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
-input[readonly]{background:#eef3f3}
-.btn{background:var(--acc);color:#fff;border:0;border-radius:6px;padding:10px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
-.btn.sec{background:transparent;color:var(--acc);border:1px solid var(--acc)}
-.btn.bad{background:transparent;color:var(--bad);border:1px solid var(--bad)}
-.btn.ghost{background:transparent;color:#fff;border:1px solid #ffffff66;padding:6px 10px;font-weight:500}
-.btn:disabled{opacity:.6;cursor:wait}
-.login{max-width:360px;margin:8vh auto 0}
-.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:8px}
-.tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--line)}
-.tab{background:none;border:0;padding:10px 14px;cursor:pointer;font-weight:500;color:var(--mut);border-bottom:3px solid transparent}
-.tab.on{color:var(--ink);border-color:var(--acc)}
-.pill{background:var(--bad);color:#fff;border-radius:10px;padding:0 7px;font-size:12px;margin-left:4px}
-.bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.bar input{flex:1;min-width:160px}#reader{width:100%;min-height:200px}
-.list{display:grid;gap:8px}
-.eq{display:flex;gap:12px;align-items:center;justify-content:space-between;cursor:pointer}
-.eq b{display:block}.eq small{color:var(--mut)}
-.eq .main{display:flex;gap:12px;align-items:center;min-width:0}
-.bs{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
-.thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;background:#eef3f3;flex:none;border:1px solid var(--line)}
-.hero{width:100%;max-height:220px;object-fit:contain;background:#eef3f3;border-radius:8px;margin-top:10px;display:block}
-.meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mut);margin-top:4px}
-.badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;border:1px solid}
-.b-vencido{color:var(--bad);border-color:var(--bad)}.b-proximo{color:var(--warn);border-color:var(--warn)}
-.b-ok{color:var(--ok);border-color:var(--ok)}.b-sin{color:var(--mut);border-color:var(--line)}
-.empty{text-align:center;color:var(--mut);padding:28px}
-h3{margin:18px 0 6px;font-size:15px}
-dialog{border:0;border-radius:10px;padding:18px;width:min(620px,95vw);max-height:92vh}
-dialog::backdrop{background:#12333a99}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line);z-index:2}
-.kv{display:grid;grid-template-columns:150px 1fr;gap:4px 10px;font-size:14px}
-.kv dt{color:var(--mut)}.kv dd{margin:0}
-.hist{border-left:3px solid var(--acc);padding:2px 0 2px 10px;margin:10px 0}
-.hist small{color:var(--mut);display:block}
-.prev{font-size:13px;color:var(--mut);margin-top:6px}
-.prev img{max-width:100%;max-height:140px;border-radius:6px;display:block;margin-top:6px}
-#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:6px;display:none;z-index:99}
-#report{display:none;font:12px/1.4 "IBM Plex Sans",Arial,sans-serif;color:#000}
-#report h1{font-size:18px;margin:0 0 2px}#report h2{font-size:13px;margin:16px 0 6px;border-bottom:1px solid #000}
-#report table{width:100%;border-collapse:collapse}
-#report th,#report td{border:1px solid #888;padding:4px 6px;text-align:left;vertical-align:top}
-#report .sig{display:flex;gap:40px;margin-top:60px}#report .sig div{flex:1;border-top:1px solid #000;text-align:center;padding-top:4px}
-.hide{display:none!important}
-@media(max-width:480px){.row{grid-template-columns:1fr}.kv{grid-template-columns:100px 1fr}}
-@media print{body.printing>*:not(#report){display:none!important}body.printing #report{display:block}body{background:#fff}@page{margin:14mm}}
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-app: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --ink-primary: #0f172a;
+  --ink-secondary: #475569;
+  --ink-muted: #64748b;
+  
+  --ok-bg: #dcfce7;
+  --ok-text: #15803d;
+  --ok-border: #bbf7d0;
+
+  --warn-bg: #fef3c7;
+  --warn-text: #b45309;
+  --warn-border: #fde68a;
+
+  --bad-bg: #fee2e2;
+  --bad-text: #b91c1c;
+  --bad-border: #fca5a5;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--ink-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+/* Header Estilizado */
+header {
+  background: var(--ink-primary);
+  color: #fff;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: var(--shadow-md);
+}
+
+header h1 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+  flex: 1;
+  letter-spacing: -0.01em;
+}
+
+header span {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+/* Tarjetas */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-md);
+}
+
+/* Inputs y Form Formularios */
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+  color: var(--ink-secondary);
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-primary);
+  transition: all 0.15s ease;
+}
+
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+input[readonly] {
+  background-color: #f1f5f9;
+  color: var(--ink-muted);
+}
+
+/* Botones */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn:hover { background: var(--primary-hover); }
+.btn.sec {
+  background: var(--surface);
+  color: var(--ink-secondary);
+  border-color: var(--border);
+}
+.btn.sec:hover {
+  background: #f1f5f9;
+  color: var(--ink-primary);
+  border-color: #cbd5e1;
+}
+.btn.bad {
+  background: var(--surface);
+  color: var(--bad-text);
+  border-color: var(--bad-border);
+}
+.btn.bad:hover { background: var(--bad-bg); }
+.btn.ghost {
+  background: transparent;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  padding: 6px 12px;
+  box-shadow: none;
+}
+.btn.ghost:hover { background: #1e293b; color: #fff; }
+.btn:disabled { opacity: 0.6; cursor: wait; }
+
+/* Login */
+.login {
+  max-width: 380px;
+  margin: 6vh auto 0;
+  padding: 24px;
+}
+
+.login h2 { font-size: 20px; font-weight: 700; color: var(--ink-primary); }
+
+.err {
+  color: var(--bad-text);
+  font-size: 13px;
+  min-height: 20px;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2px;
+}
+
+.tab {
+  background: none;
+  border: 0;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink-muted);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.tab:hover { color: var(--ink-primary); }
+.tab.on { color: var(--primary); border-color: var(--primary); }
+
+.pill {
+  background: var(--bad-text);
+  color: #fff;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+/* Bar / Controls */
+.bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.bar input { flex: 2; min-width: 200px; }
+.bar select { flex: 1; min-width: 160px; }
+
+#reader { width: 100%; min-height: 220px; border-radius: var(--radius-md); overflow: hidden; background: #000; }
+
+.list { display: grid; gap: 10px; }
+
+/* Items Equipo */
+.eq {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.eq b { display: block; font-size: 15px; color: var(--ink-primary); font-weight: 600; }
+.eq small { color: var(--ink-muted); font-size: 12px; font-weight: 500; }
+.eq .main { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.bs { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+
+.thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: #f1f5f9;
+  flex: none;
+  border: 1px solid var(--border);
+}
+
+.hero {
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-top: 12px;
+  display: block;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-top: 4px;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.b-vencido { background: var(--bad-bg); color: var(--bad-text); border-color: var(--bad-border); }
+.b-proximo { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-border); }
+.b-ok { background: var(--ok-bg); color: var(--ok-text); border-color: var(--ok-border); }
+.b-sin { background: #f1f5f9; color: var(--ink-muted); border-color: var(--border); }
+
+.empty { text-align: center; color: var(--ink-muted); padding: 32px 16px; font-weight: 500; }
+
+h3 { margin: 20px 0 10px; font-size: 15px; font-weight: 600; }
+
+/* Modales y Diálogos */
+dialog {
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: min(640px, 92vw);
+  max-height: 88vh;
+  box-shadow: var(--shadow-lg);
+  background: var(--surface);
+  color: var(--ink-primary);
+}
+
+dialog::backdrop {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  position: sticky;
+  bottom: -24px;
+  background: var(--surface);
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  z-index: 2;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px 12px;
+  font-size: 13px;
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.kv dt { color: var(--ink-muted); font-weight: 500; }
+.kv dd { margin: 0; font-weight: 600; color: var(--ink-primary); }
+
+.hist {
+  border-left: 3px solid var(--primary);
+  padding: 8px 0 8px 14px;
+  margin: 12px 0;
+  background: #f8fafc;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.hist small { color: var(--ink-muted); display: block; margin: 2px 0 4px; font-size: 12px; }
+
+.prev { font-size: 13px; color: var(--ink-muted); margin-top: 6px; }
+.prev img { max-width: 100%; max-height: 140px; border-radius: var(--radius-sm); display: block; margin-top: 6px; }
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--ink-primary);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  display: none;
+  z-index: 99;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+}
+
+#report { display: none; font: 12px/1.4 "Inter", Arial, sans-serif; color: #000; }
+#report h1 { font-size: 18px; margin: 0 0 2px; }
+#report h2 { font-size: 13px; margin: 16px 0 6px; border-bottom: 1px solid #000; }
+#report table { width: 100%; border-collapse: collapse; }
+#report th, #report td { border: 1px solid #888; padding: 4px 6px; text-align: left; vertical-align: top; }
+#report .sig { display: flex; gap: 40px; margin-top: 60px; }
+#report .sig div { flex: 1; border-top: 1px solid #000; text-align: center; padding-top: 4px; }
+
+.hide { display: none !important; }
+
+@media(max-width: 580px) {
+  .row { grid-template-columns: 1fr; }
+  .kv { grid-template-columns: 110px 1fr; }
+  .bar { flex-direction: column; }
+  .bar input, .bar select { width: 100%; }
+}
+
+@media print {
+  body.printing > *:not(#report) { display: none !important; }
+  body.printing #report { display: block; }
+  body { background: #fff; }
+  @page { margin: 14mm; }
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>Mantenimiento de equipos</h1>
+  <h1>Mantenimiento de Equipos</h1>
   <span id="who"></span>
   <button class="btn ghost hide" id="out">Salir</button>
 </header>
 
 <main>
   <section id="vLogin" class="card login">
-    <h2 style="margin:0 0 4px">Ingresar</h2>
-    <label for="dni">DNI</label><input id="dni" inputmode="numeric" autocomplete="username">
-    <label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password">
-    <details id="cfg" style="margin-top:12px">
-      <summary style="cursor:pointer;color:var(--mut);font-size:13px">Conexión</summary>
+    <h2 style="margin:0 0 8px">Ingresar</h2>
+    <label for="dni">DNI</label>
+    <input id="dni" inputmode="numeric" autocomplete="username">
+    <label for="pw">Contraseña</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <details id="cfg" style="margin-top:16px">
+      <summary style="cursor:pointer;color:var(--ink-muted);font-size:13px;font-weight:500">Conexión</summary>
       <label for="url">URL de la aplicación web (Apps Script)</label>
       <input id="url" placeholder="https://script.google.com/macros/s/.../exec">
     </details>
     <div class="err" id="eLogin"></div>
-    <button class="btn" id="bLogin" style="width:100%">Ingresar</button>
+    <button class="btn" id="bLogin" style="width:100%;margin-top:12px">Ingresar</button>
   </section>
 
   <section id="vApp" class="hide">
@@ -97,12 +438,16 @@ dialog::backdrop{background:#12333a99}
         <button class="btn sec" id="scan">Escanear QR / barras</button>
         <button class="btn" id="new">Nuevo equipo</button>
         <button class="btn sec" id="reload">Actualizar</button>
-        <select id="flt" aria-label="Filtrar equipos" style="width:auto">
-          <option value="">Todos los estados</option><option value="mv">Mantenimiento vencido</option><option value="mp">Mantenimiento por vencer</option>
-          <option value="ms">Sin mantenimiento programado</option><option value="vv">Vida útil superada</option><option value="vp">Vida útil por vencer</option>
+        <select id="flt" aria-label="Filtrar equipos">
+          <option value="">Todos los estados</option>
+          <option value="mv">Mantenimiento vencido</option>
+          <option value="mp">Mantenimiento por vencer</option>
+          <option value="ms">Sin mantenimiento programado</option>
+          <option value="vv">Vida útil superada</option>
+          <option value="vp">Vida útil por vencer</option>
         </select>
       </div>
-      <div class="prev" id="cnt" style="margin:0 0 8px"></div>
+      <div class="prev" id="cnt" style="margin:0 0 12px;font-weight:500"></div>
       <div class="list" id="list"></div>
     </div>
     <div id="pAl" class="hide"><div class="list" id="alList"></div></div>
@@ -110,10 +455,13 @@ dialog::backdrop{background:#12333a99}
 </main>
 
 <dialog id="dDet">
-  <h2 style="margin:0" id="tDet"></h2>
-  <span class="badge" id="bDet"></span> <span class="badge hide" id="bVida"></span>
+  <h2 style="margin:0;font-size:18px" id="tDet"></h2>
+  <div style="margin-top:6px">
+    <span class="badge" id="bDet"></span> 
+    <span class="badge hide" id="bVida"></span>
+  </div>
   <img class="hero hide" id="imgDet" alt="Imagen del equipo">
-  <dl class="kv" id="kvDet" style="margin-top:12px"></dl>
+  <dl class="kv" id="kvDet" style="margin-top:16px"></dl>
   <h3>Historial de mantenimientos</h3>
   <div id="hDet"></div>
   <div class="actions">
@@ -126,15 +474,18 @@ dialog::backdrop{background:#12333a99}
 </dialog>
 
 <dialog id="dEq">
-  <h2 style="margin:0" id="tEq"></h2>
+  <h2 style="margin:0 0 12px;font-size:18px" id="tEq"></h2>
   <div id="fEq"></div>
   <div class="err" id="eEq"></div>
-  <div class="actions"><button class="btn sec" id="cEq">Cancelar</button><button class="btn" id="sEq">Guardar equipo</button></div>
+  <div class="actions">
+    <button class="btn sec" id="cEq">Cancelar</button>
+    <button class="btn" id="sEq">Guardar equipo</button>
+  </div>
 </dialog>
 
 <dialog id="dlg">
-  <h2 style="margin:0">Registrar mantenimiento</h2>
-  <div class="prev" id="dEqN"></div>
+  <h2 style="margin:0;font-size:18px">Registrar mantenimiento</h2>
+  <div class="prev" id="dEqN" style="font-weight:600;color:var(--ink-primary);margin-top:4px"></div>
   <label for="tipo">Tipo</label>
   <select id="tipo"><option>Preventivo</option><option>Correctivo</option><option>Predictivo</option><option>Calibración</option></select>
   <div class="row">
@@ -147,11 +498,14 @@ dialog::backdrop{background:#12333a99}
   <input id="file" type="file" accept="image/*,application/pdf" multiple>
   <div class="prev" id="fprev"></div>
   <div class="err" id="eSave"></div>
-  <div class="actions"><button class="btn sec" id="cancel">Cancelar</button><button class="btn" id="save">Guardar registro</button></div>
+  <div class="actions">
+    <button class="btn sec" id="cancel">Cancelar</button>
+    <button class="btn" id="save">Guardar registro</button>
+  </div>
 </dialog>
 
 <dialog id="dScan">
-  <h2 style="margin:0 0 8px">Escanear código</h2>
+  <h2 style="margin:0 0 12px;font-size:18px">Escanear código</h2>
   <div id="reader"></div>
   <div class="err" id="eScan">Apunta la cámara al QR o al código de barras del equipo.</div>
   <div class="actions"><button class="btn sec" id="xScan">Cancelar</button></div>
@@ -196,7 +550,7 @@ const fmt = v => {
   return `${m[3]}/${m[2]}/${m[1]}` + (t && t !== "00:00:00" ? " " + t : "");
 };
 
-function toast(m, bad){ const t = $("toast"); t.textContent = m; t.style.background = bad ? "var(--bad)" : "var(--ink)"; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3500); }
+function toast(m, bad){ const t = $("toast"); t.textContent = m; t.style.background = bad ? "var(--bad-text)" : "var(--ink-primary)"; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3500); }
 
 async function post(body, ms){
   const ac = new AbortController(), t = ms ? setTimeout(() => ac.abort(), ms) : null;
@@ -332,7 +686,7 @@ function info(id){
   return {n: r ? r.n : 0, last: r ? {fecha:r.f, tipo:r.t} : null, prox, st, txt};
 }
 const evUrls = m => String(m.evidencia || "").split(/\s+/).filter(u => /^https?:\/\//.test(u));
-const evLinks = m => { const u = evUrls(m); return u.map((x, k) => `<a href="${esc(x)}" target="_blank" rel="noopener">${u.length > 1 ? "Evidencia " + (k + 1) : "Ver evidencia"}</a>`).join(" · "); };
+const evLinks = m => { const u = evUrls(m); return u.map((x, k) => `<a href="${esc(x)}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600">${u.length > 1 ? "Evidencia " + (k + 1) : "Ver evidencia"}</a>`).join(" · "); };
 const badge = i => `<span class="badge b-${i.st}">${esc(i.txt)}</span>`;
 
 /* ---------- Lista y alertas ---------- */
@@ -409,7 +763,7 @@ function loadHist(id){
   })().finally(() => inflight.delete(k));
   inflight.set(k, p); return p;
 }
-const histHTML = h => h.length ? h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small>${esc(m.descripcion)}${evUrls(m).length ? " " + evLinks(m) : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
+const histHTML = h => h.length ? h.map(m => `<div class="hist"><b style="font-size:14px;color:var(--ink-primary)">${esc(m.tipo)}</b> · <span style="font-size:13px;color:var(--ink-secondary)">${esc(fmt(m.fecha))}</span><small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small><div style="font-size:13px;margin-top:2px">${esc(m.descripcion)}</div>${evUrls(m).length ? "<div style='margin-top:4px;font-size:12px'>" + evLinks(m) + "</div>" : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
 function openDet(e){
   if(!e){ $("dDet").close(); return; }
   current = e; const i = e._i, k = String(idOf(e));
@@ -469,8 +823,7 @@ function openEq(e){
 $("new").onclick = () => openEq(null);
 $("aEdit").onclick = () => openEq(current);
 $("cEq").onclick = () => $("dEq").close();
-$("sEq").onclick = async () => {
-  const eq = {}; COLS.forEach(h => { if(h !== "Imagen") eq[h] = $("f_" + h).value.trim(); });
+$("sEq").onclick = async () => {   const eq = {}; COLS.forEach(h => { if(h !== "Imagen") eq[h] = $("f_" + h).value.trim(); });
   if(!eq.ID_Equipo){ $("eEq").textContent = "El código del equipo es obligatorio."; return; }
   if(!eq.Denominacion){ $("eEq").textContent = "La denominación es obligatoria."; return; }
   if(eq.Vida_util && !(parseFloat(eq.Vida_util) > 0)){ $("eEq").textContent = "La vida útil debe ser un número de años mayor que 0."; return; }
@@ -514,7 +867,7 @@ async function shrink(f, max = 1280, q = .72, maxKB = 250){
 }
 const MAX_FILES = 6;
 function renderFiles(){
-  $("fprev").innerHTML = files.map((f, k) => `<div style="display:flex;gap:8px;align-items:center;margin-top:6px">${f.type.startsWith("image/") ? `<img src="${f.data}" alt="" style="width:44px;height:44px;object-fit:cover;margin:0">` : "<b>PDF</b>"}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)} · ${f.kb} KB</span><button type="button" class="btn bad" data-rm="${k}" style="padding:4px 8px">Quitar</button></div>`).join("");
+  $("fprev").innerHTML = files.map((f, k) => `<div style="display:flex;gap:8px;align-items:center;margin-top:6px">${f.type.startsWith("image/") ? `<img src="${f.data}" alt="" style="width:44px;height:44px;object-fit:cover;margin:0;border-radius:4px">` : "<b style='padding:8px;background:#f1f5f9;border-radius:4px'>PDF</b>"}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)} · ${f.kb} KB</span><button type="button" class="btn bad" data-rm="${k}" style="padding:4px 8px">Quitar</button></div>`).join("");
   $("fprev").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { files.splice(+b.dataset.rm, 1); renderFiles(); });
 }
 $("file").onchange = async () => {
