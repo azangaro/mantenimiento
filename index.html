@@ -178,7 +178,7 @@ const wrap = s => ({
   del(k){ try{ s.removeItem(k) }catch(e){} }
 });
 const store = wrap(localStorage), sess = wrap(sessionStorage);
-let user = null, pass = "", equipos = [], byId = new Map(), res = {}, hist = new Map(), current = null, editing = null, files = [], imgNew = null, imgQuit = false;
+let user = null, pass = "", equipos = [], byId = new Map(), res = {}, hist = new Map(), inflight = new Map(), bustUntil = 0, current = null, editing = null, files = [], imgNew = null, imgQuit = false;
 
 const apiUrl = () => ($("url").value.trim() || store.get("apiUrl") || DEFAULT_URL);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -198,12 +198,15 @@ const fmt = v => {
 
 function toast(m, bad){ const t = $("toast"); t.textContent = m; t.style.background = bad ? "var(--bad)" : "var(--ink)"; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3500); }
 
-async function post(body){
-  const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, // sin preflight CORS
-    body: JSON.stringify({dni:user && user.dni, password:pass, ...body}) });
-  const j = await r.json();
-  if(j.message === "Sesión no válida"){ logout(); toast("La sesión expiró. Ingresa de nuevo.", true); }
-  return j;
+async function post(body, ms){
+  const ac = new AbortController(), t = ms ? setTimeout(() => ac.abort(), ms) : null;
+  try{
+    const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, // sin preflight CORS
+      body: JSON.stringify({dni:user && user.dni, password:pass, ...body}), signal: ac.signal });
+    const j = await r.json();
+    if(j.message === "Sesión no válida"){ logout(); toast("La sesión expiró. Ingresa de nuevo.", true); }
+    return j;
+  } finally { if(t) clearTimeout(t); }
 }
 
 /* ---------- Acceso ---------- */
@@ -260,7 +263,7 @@ async function loadAll(force){
     if(!lista) throw new Error("formato");
     setEquipos(lista); res = rs.status === "success" ? rs.data : {};
     sess.set("c_eq", eqT); sess.set("c_rs", JSON.stringify(res));
-    if(force) hist.clear();
+    if(force){ hist.clear(); bustUntil = Date.now() + 120000; }
     derive(); refresh();
     if($("dDet").open && current) openDet(byId.get(String(idOf(current))));
   }catch(e){
@@ -387,11 +390,24 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
 });
 
 /* ---------- Detalle e historial ---------- */
-async function loadHist(id){
-  const k = String(id); if(hist.has(k)) return hist.get(k);
-  const r = await post({action:"getHistorial", idEquipo:id});
-  if(r.status !== "success") throw new Error(r.message || "error");
-  hist.set(k, r.data); return r.data;
+// Pide el historial con tiempo límite y hasta 3 intentos; si ya hay un pedido en curso para ese equipo, lo reutiliza
+function loadHist(id){
+  const k = String(id);
+  if(hist.has(k)) return Promise.resolve(hist.get(k));
+  if(inflight.has(k)) return inflight.get(k);
+  const p = (async () => {
+    let err = new Error("error");
+    for(let t = 0; t < 3; t++){
+      try{
+        const r = await post({action:"getHistorial", idEquipo:id, fresh: Date.now() < bustUntil}, 30000);
+        if(r.status === "success"){ hist.set(k, r.data); return r.data; }
+        err = new Error(r.message || "error"); if(r.message === "Sesión no válida") break;
+      }catch(e){ err = e; }
+      await new Promise(res => setTimeout(res, 700 * (t + 1)));
+    }
+    throw err;
+  })().finally(() => inflight.delete(k));
+  inflight.set(k, p); return p;
 }
 const histHTML = h => h.length ? h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small>${esc(m.descripcion)}${evUrls(m).length ? " " + evLinks(m) : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
 function openDet(e){
@@ -402,13 +418,19 @@ function openDet(e){
   $("imgDet").classList.toggle("hide", !e.Imagen); if(e.Imagen) $("imgDet").src = imgSrc(e.Imagen, 600);
   $("kvDet").innerHTML = datos(e).map(([k,x]) => `<dt>${esc(k)}</dt><dd>${esc(x) || "—"}</dd>`).join("");
   // El historial se pide solo al abrir la ficha (y solo si el equipo tiene registros)
+  const aqui = () => current && String(idOf(current)) === k; // la ficha sigue abierta en este equipo
+  const pedir = () => {
+    $("hDet").innerHTML = '<div class="empty">Cargando historial… puede tardar unos segundos.</div>';
+    loadHist(k).then(h => { if(aqui()) $("hDet").innerHTML = histHTML(h); })
+      .catch(() => {
+        if(!aqui()) return;
+        $("hDet").innerHTML = '<div class="empty">No se pudo cargar el historial.<br><button type="button" class="btn sec" id="hRetry" style="margin-top:8px">Reintentar</button></div>';
+        $("hRetry").onclick = pedir;
+      });
+  };
   if(hist.has(k)) $("hDet").innerHTML = histHTML(hist.get(k));
   else if(!i.n) $("hDet").innerHTML = histHTML([]);
-  else {
-    $("hDet").innerHTML = '<div class="empty">Cargando historial…</div>';
-    loadHist(k).then(h => { if(current === e) $("hDet").innerHTML = histHTML(h); })
-      .catch(() => { if(current === e) $("hDet").innerHTML = '<div class="empty">No se pudo cargar el historial. Cierra y vuelve a abrir la ficha.</div>'; });
-  }
+  else pedir();
   if(!$("dDet").open) $("dDet").showModal();
 }
 $("aClose").onclick = () => $("dDet").close();
@@ -521,7 +543,12 @@ $("save").onclick = async () => {
       // Actualiza el resumen localmente (sin recargar todo)
       const k = String(idOf(current)), x = res[k], np = b.proximaFecha || "";
       if(!x) res[k] = {f:b.fecha, t:b.tipo, p:np, n:1}; else { x.n++; if(b.fecha > x.f){ x.f = b.fecha; x.t = b.tipo; x.p = np; } }
-      current._i = info(k); hist.delete(k); sess.del("c_rs"); refresh(); openDet(current);
+      current._i = info(k); sess.del("c_rs");
+      if(hist.has(k)){
+        const rec = {id:r.id, fecha:b.fecha, idEquipo:idOf(current), tipo:b.tipo, dniTecnico:user.dni, tecnico:user.nombre, descripcion:b.descripcion, proximaFecha:b.proximaFecha, evidencia:r.fileUrl || ""};
+        hist.set(k, [rec, ...hist.get(k)].sort((x, y) => String(y.fecha).localeCompare(String(x.fecha))));
+      }
+      refresh(); openDet(current);
     } else $("eSave").textContent = r.message || "No se pudo guardar.";
   }catch(e){ $("eSave").textContent = "Error de conexión. Tus datos siguen aquí; intenta de nuevo."; }
   finally{ $("save").disabled = false; $("save").textContent = "Guardar registro"; }
