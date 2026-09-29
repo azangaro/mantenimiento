@@ -409,11 +409,69 @@ dialog h2{
   border-left:3px solid var(--acc);
   background:#f7fbfb;
   border-radius:0 var(--radius-sm) var(--radius-sm) 0;
-  padding:10px 12px;
-  margin:9px 0;
+  padding:12px 14px;
+  margin:10px 0;
 }
 
-.hist small{color:var(--mut);display:block;margin-bottom:3px}
+.hist small{color:var(--mut);display:block;margin-bottom:4px}
+
+/* ----- Galería de evidencias ----- */
+.ev-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+  align-items:center;
+}
+
+.ev-card{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  background:#ffffff;
+  border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm);
+  padding:4px;
+  cursor:pointer;
+  transition:all .18s ease;
+  text-decoration:none;
+  color:var(--ink);
+  font-size:12px;
+  font-weight:500;
+  box-shadow:0 1px 3px rgba(0,0,0,.04);
+}
+
+.ev-card:hover{
+  border-color:var(--acc);
+  box-shadow:0 3px 8px rgba(22,124,130,.15);
+  transform:translateY(-1px);
+}
+
+.ev-card img{
+  width:52px;
+  height:52px;
+  object-fit:cover;
+  border-radius:6px;
+  background:#eaeff0;
+  display:block;
+}
+
+.ev-card .ev-pdf-icon{
+  width:40px;
+  height:40px;
+  background:var(--bad-soft);
+  color:var(--bad);
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:11px;
+}
+
+.ev-card span{
+  padding:0 8px 0 2px;
+}
 
 .prev{font-size:12px;color:var(--mut);margin-top:7px}
 .prev img{max-width:100%;max-height:140px;border-radius:10px;display:block;margin-top:7px}
@@ -586,13 +644,24 @@ input[type="file"]{
   <div class="actions"><button class="btn sec" id="xScan">Cancelar</button></div>
 </dialog>
 
+<!-- Visor de Evidencias Integrado -->
+<dialog id="dEvid" style="width:min(900px, calc(100vw - 20px)); padding:16px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h3 style="margin:0;" id="evTitle">Vista previa de evidencia</h3>
+    <a id="evOpenExt" href="#" target="_blank" rel="noopener" class="btn ghost" style="text-decoration:none;">Abrir externa ↗</a>
+  </div>
+  <div id="evBody" style="display:flex; justify-content:center; align-items:center; min-height:300px; background:#f4f7f7; border-radius:8px; overflow:hidden;">
+  </div>
+  <div class="actions" style="margin-top:12px;">
+    <button class="btn sec" onclick="$('dEvid').close()">Cerrar</button>
+  </div>
+</dialog>
+
 <div id="report"></div>
 <div id="toast" role="status"></div>
 
 <script>
-// URL de tu implementación web de Apps Script (termina en /exec). También se puede pegar en la pantalla de ingreso.
 const DEFAULT_URL = "";
-// Título que aparece en el informe impreso.
 const INSTITUCION = "Informe técnico de equipo";
 const COLS = ["ID_Equipo","Denominacion","Marca","Modelo","Serie","Ubicacion","Fecha_ingreso","Vida_util","Estado","Imagen"];
 const LABEL = {ID_Equipo:"ID equipo", Denominacion:"Denominación", Ubicacion:"Ubicación", Fecha_ingreso:"Fecha de ingreso", Vida_util:"Vida útil (años)", Imagen:"Imagen"};
@@ -616,7 +685,6 @@ const nowLocal = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d
 const today = () => nowLocal().slice(0,10);
 const days = d => Math.round((new Date(d + "T00:00:00") - new Date(today() + "T00:00:00")) / 864e5);
 const stamp = v => { v = (v || nowLocal()).replace("T", " "); return v.length === 16 ? v + ":00" : v; };
-// Muestra dd/mm/yyyy hh:mm:ss (solo dd/mm/yyyy cuando el valor no trae hora)
 const fmt = v => {
   if(v == null || v === "") return "";
   const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):?(\d{2})?)?/);
@@ -630,7 +698,7 @@ function toast(m, bad){ const t = $("toast"); t.textContent = m; t.style.backgro
 async function post(body, ms){
   const ac = new AbortController(), t = ms ? setTimeout(() => ac.abort(), ms) : null;
   try{
-    const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, // sin preflight CORS
+    const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
       body: JSON.stringify({dni:user && user.dni, password:pass, ...body}), signal: ac.signal });
     const j = await r.json();
     if(j.message === "Sesión no válida"){ logout(); toast("La sesión expiró. Ingresa de nuevo.", true); }
@@ -668,7 +736,6 @@ function enter(){ show(true); loadAll(); }
 const pack = o => { o._s = SEARCH.map(h => o[h] ?? "").join(" ").toLowerCase(); return o; };
 function setEquipos(list){ equipos = list.map(pack); byId = new Map(equipos.map(e => [String(e.ID_Equipo), e])); }
 function derive(){ equipos.forEach(e => { e._v = vida(e); e._i = info(e.ID_Equipo); }); }
-// Acepta el formato compacto {h:[columnas], r:[filas]} y el formato anterior (lista de objetos)
 function unpack(j){
   if(Array.isArray(j)) return j;
   if(!j || !Array.isArray(j.h) || !Array.isArray(j.r)) return null;
@@ -677,8 +744,6 @@ function unpack(j){
   return out;
 }
 function refresh(){ render(); renderAlerts(); }
-// Muestra al instante lo último cargado en esta sesión y actualiza en segundo plano.
-// force = true (botón Actualizar) ignora las cachés, incluida la del servidor.
 async function loadAll(force){
   let shown = false;
   if(!force){
@@ -702,7 +767,6 @@ async function loadAll(force){
 }
 $("reload").onclick = () => loadAll(true);
 
-// Cambios locales tras guardar/eliminar: no hace falta recargar toda la lista
 function upsertEquipo(o){
   pack(o); o._v = vida(o); const k = String(idOf(o)), old = byId.get(k); o._i = info(k);
   if(old) equipos[equipos.indexOf(old)] = o; else equipos.push(o);
@@ -760,12 +824,54 @@ function info(id){
     if(d < 0){ st = "vencido"; txt = `Vencido hace ${-d} d`; } else if(d <= 30){ st = "proximo"; txt = d === 0 ? "Vence hoy" : `En ${d} d`; } else { st = "ok"; txt = "Al día"; } }
   return {n: r ? r.n : 0, last: r ? {fecha:r.f, tipo:r.t} : null, prox, st, txt};
 }
-const evUrls = m => String(m.evidencia || "").split(/\s+/).filter(u => /^https?:\/\//.test(u));
-const evLinks = m => { const u = evUrls(m); return u.map((x, k) => `<a href="${esc(x)}" target="_blank" rel="noopener">${u.length > 1 ? "Evidencia " + (k + 1) : "Ver evidencia"}</a>`).join(" · "); };
+
+/* ----- Procesador de Evidencias (Fotos y PDFs) ----- */
+const evUrls = m => String(m.evidencia || "").split(/[\s,\n]+/).filter(u => /^https?:\/\//i.test(u));
+
+function isPdfUrl(url){
+  return /\.pdf($|\?)/i.test(url) || url.includes("drive.google.com") && url.includes(".pdf");
+}
+
+function viewEvid(url, type){
+  const body = $("evBody");
+  $("evOpenExt").href = url;
+  if(type === 'pdf'){
+    $("evTitle").textContent = "Evidencia PDF";
+    let embedUrl = url;
+    const m = url.match(/\/d\/([\w-]+)/);
+    if(m) embedUrl = `https://drive.google.com/file/d/${m[1]}/preview`;
+    body.innerHTML = `<iframe src="${esc(embedUrl)}" style="width:100%; height:70vh; border:0;"></iframe>`;
+  } else {
+    $("evTitle").textContent = "Evidencia Fotográfica";
+    body.innerHTML = `<img src="${esc(imgSrc(url, 1200))}" style="max-width:100%; max-height:70vh; object-fit:contain;" alt="Evidencia">`;
+  }
+  $("dEvid").showModal();
+}
+
+function evGalleryHtml(m){
+  const urls = evUrls(m);
+  if(!urls.length) return "";
+  const cards = urls.map((u, idx) => {
+    const isPdf = isPdfUrl(u);
+    if(isPdf){
+      return `<button type="button" class="ev-card" onclick="viewEvid('${esc(u)}', 'pdf')">
+        <div class="ev-pdf-icon">PDF</div>
+        <span>Evidencia ${idx+1}</span>
+      </button>`;
+    } else {
+      const thumb = imgSrc(u, 200);
+      return `<button type="button" class="ev-card" onclick="viewEvid('${esc(u)}', 'img')">
+        <img src="${esc(thumb)}" loading="lazy" alt="Foto">
+        <span>Foto ${idx+1}</span>
+      </button>`;
+    }
+  });
+  return `<div class="ev-grid">${cards.join("")}</div>`;
+}
+
 const badge = i => `<span class="badge b-${i.st}">${esc(i.txt)}</span>`;
 
 /* ---------- Lista y alertas ---------- */
-// Dibuja de a 50 y carga más al llegar al final: la lista sigue fluida con miles de equipos
 function paged(box, items, make, size = 50){
   if(box._io) box._io.disconnect();
   box.innerHTML = ""; let n = 0;
@@ -819,7 +925,6 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
 });
 
 /* ---------- Detalle e historial ---------- */
-// Pide el historial con tiempo límite y hasta 3 intentos; si ya hay un pedido en curso para ese equipo, lo reutiliza
 function loadHist(id){
   const k = String(id);
   if(hist.has(k)) return Promise.resolve(hist.get(k));
@@ -838,7 +943,9 @@ function loadHist(id){
   })().finally(() => inflight.delete(k));
   inflight.set(k, p); return p;
 }
-const histHTML = h => h.length ? h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small>${esc(m.descripcion)}${evUrls(m).length ? " " + evLinks(m) : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
+
+const histHTML = h => h.length ? h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small><div>${esc(m.descripcion)}</div>${evGalleryHtml(m)}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
+
 function openDet(e){
   if(!e){ $("dDet").close(); return; }
   current = e; const i = e._i, k = String(idOf(e));
@@ -846,8 +953,8 @@ function openDet(e){
   const v = e._v; $("bVida").className = "badge b-" + v.st + (v.st === "sin" ? " hide" : ""); $("bVida").textContent = v.txt;
   $("imgDet").classList.toggle("hide", !e.Imagen); if(e.Imagen) $("imgDet").src = imgSrc(e.Imagen, 600);
   $("kvDet").innerHTML = datos(e).map(([k,x]) => `<dt>${esc(k)}</dt><dd>${esc(x) || "—"}</dd>`).join("");
-  // El historial se pide solo al abrir la ficha (y solo si el equipo tiene registros)
-  const aqui = () => current && String(idOf(current)) === k; // la ficha sigue abierta en este equipo
+  
+  const aqui = () => current && String(idOf(current)) === k;
   const pedir = () => {
     $("hDet").innerHTML = '<div class="empty">Cargando historial… puede tardar unos segundos.</div>';
     loadHist(k).then(h => { if(aqui()) $("hDet").innerHTML = histHTML(h); })
@@ -928,7 +1035,6 @@ $("aDel").onclick = async () => {
 
 /* ---------- Registrar mantenimiento ---------- */
 const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-// Reduce la imagen (lado máximo en px) y baja la calidad JPEG hasta no superar maxKB
 async function shrink(f, max = 1280, q = .72, maxKB = 250){
   const url = URL.createObjectURL(f);
   try{
@@ -969,7 +1075,6 @@ $("save").onclick = async () => {
     const r = await post(b);
     if(r.status === "success"){
       $("dlg").close(); toast("Registro guardado");
-      // Actualiza el resumen localmente (sin recargar todo)
       const k = String(idOf(current)), x = res[k], np = b.proximaFecha || "";
       if(!x) res[k] = {f:b.fecha, t:b.tipo, p:np, n:1}; else { x.n++; if(b.fecha > x.f){ x.f = b.fecha; x.t = b.tipo; x.p = np; } }
       current._i = info(k); sess.del("c_rs");
@@ -983,7 +1088,7 @@ $("save").onclick = async () => {
   finally{ $("save").disabled = false; $("save").textContent = "Guardar registro"; }
 };
 
-/* ---------- Informe técnico (imprimir / guardar como PDF) ---------- */
+/* ---------- Informe técnico ---------- */
 $("aRep").onclick = async () => {
   const e = current, i = e._i; let h = [];
   try{ if(i.n) h = await loadHist(idOf(e)); }catch(err){ toast("No se pudo cargar el historial para el informe", true); return; }
@@ -991,7 +1096,7 @@ $("aRep").onclick = async () => {
   <h2>Datos del equipo</h2>${e.Imagen ? `<img src="${esc(imgSrc(e.Imagen, 600))}" style="max-height:110px;float:right;margin:0 0 8px 10px" alt="">` : ""}<table style="width:${e.Imagen ? "75%" : "100%"}">${datos(e).map(([k,x]) => `<tr><th style="width:36%">${esc(k)}</th><td>${esc(x) || "—"}</td></tr>`).join("")}</table><div style="clear:both"></div>
   <h2>Resumen</h2><table><tr><th>Mantenimientos registrados</th><td>${h.length}</td><th>Último</th><td>${i.last ? esc(fmt(i.last.fecha)) + " (" + esc(i.last.tipo) + ")" : "—"}</td></tr>
   <tr><th>Próximo programado</th><td>${esc(fmt(i.prox)) || "—"}</td><th>Estado</th><td>${esc(i.txt)}</td></tr></table>
-  <h2>Historial de mantenimientos</h2>${h.length ? `<table><tr><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Descripción</th><th>Próximo</th></tr>${h.map(m => `<tr><td>${esc(fmt(m.fecha))}</td><td>${esc(m.tipo)}</td><td>${esc(m.tecnico)}</td><td>${esc(m.descripcion)}${evUrls(m).length ? `<br>Evidencia: ${evUrls(m).map(esc).join("<br>")}` : ""}</td><td>${esc(fmt(m.proximaFecha)) || "—"}</td></tr>`).join("")}</table>` : "<p>Sin mantenimientos registrados.</p>"}
+  <h2>Historial de mantenimientos</h2>${h.length ? `<table><tr><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Descripción</th><th>Próximo</th></tr>${h.map(m => `<tr><td>${esc(fmt(m.fecha))}</td><td>${esc(m.tipo)}</td><td>${esc(m.tecnico)}</td><td>${esc(m.descripcion)}${evUrls(m).length ? `<br>Evidencias: ${evUrls(m).map((u, idx) => `<a href="${esc(u)}" target="_blank">${isPdfUrl(u) ? 'PDF '+ (idx+1) : 'Foto ' + (idx+1)}</a>`).join(" · ")}` : ""}</td><td>${esc(fmt(m.proximaFecha)) || "—"}</td></tr>`).join("")}</table>` : "<p>Sin mantenimientos registrados.</p>"}
   <div class="sig"><div>Técnico responsable</div><div>Jefe de área</div></div>`;
   document.title = "Informe " + idOf(e);
   document.body.classList.add("printing"); window.print();
