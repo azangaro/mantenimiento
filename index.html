@@ -880,10 +880,11 @@ function openEq(e){
   editing = e || null; imgNew = null; imgQuit = false; $("tEq").textContent = e ? "Editar equipo" : "Nuevo equipo"; $("eEq").textContent = "";
   const v = h => e ? String(e[h] ?? "") : "";
   const f = (h, extra = "", val = v(h), text = lbl(h)) => `<div><label for="f_${h}">${esc(text)}</label><input id="f_${h}" value="${esc(val)}" ${extra}></div>`;
+  const estadoVal = v("Estado");
   $("fEq").innerHTML = f("ID_Equipo", e ? "readonly" : "", v("ID_Equipo"), "ID equipo (código único)") + f("Denominacion")
     + `<div class="row">${f("Marca")}${f("Modelo")}</div><div class="row">${f("Serie")}${f("Ubicacion")}</div>`
     + `<div class="row">${f("Fecha_ingreso", 'type="date"', ymd(v("Fecha_ingreso")))}${f("Vida_util", 'type="number" min="0" step="0.5" inputmode="decimal"', v("Vida_util").replace(",", "."))}</div>`
-    + f("Estado", 'list="estados" autocomplete="off"') + `<datalist id="estados">${ESTADOS.map(x => `<option value="${x}">`).join("")}</datalist>`
+    + `<div><label for="f_Estado">Estado</label><select id="f_Estado">${ESTADOS.map(x => `<option value="${esc(x)}"${x === estadoVal ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></div>`
     + `<label for="fImg">Imagen del equipo</label><input id="fImg" type="file" accept="image/*"><div class="prev" id="imgPrev"></div><button type="button" class="btn bad hide" id="imgDel" style="margin-top:8px">Quitar imagen</button>`;
   $("fImg").onchange = async () => {
     const file = $("fImg").files[0]; if(!file) return;
@@ -898,8 +899,7 @@ function openEq(e){
 $("new").onclick = () => openEq(null);
 $("aEdit").onclick = () => openEq(current);
 $("cEq").onclick = () => $("dEq").close();
-$("sEq").onclick = async () => {
-  const eq = {}; COLS.forEach(h => { if(h !== "Imagen") eq[h] = $("f_" + h).value.trim(); });
+$("sEq").onclick = async () => {   const eq = {}; COLS.forEach(h => { if(h !== "Imagen") eq[h] = $("f_" + h).value.trim(); });
   if(!eq.ID_Equipo){ $("eEq").textContent = "El código del equipo es obligatorio."; return; }
   if(!eq.Denominacion){ $("eEq").textContent = "La denominación es obligatoria."; return; }
   if(eq.Vida_util && !(parseFloat(eq.Vida_util) > 0)){ $("eEq").textContent = "La vida útil debe ser un número de años mayor que 0."; return; }
