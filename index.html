@@ -33,6 +33,8 @@ input[readonly]{background:#eef3f3}
 .bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.bar input{flex:1;min-width:160px}#reader{width:100%;min-height:200px}
 .list{display:grid;gap:8px}
 .eq{display:flex;gap:12px;align-items:center;justify-content:space-between;cursor:pointer}
+.eq-thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:#eef3f3;flex-shrink:0}
+.eq-left{display:flex;gap:12px;align-items:center}
 .eq b{display:block}.eq small{color:var(--mut)}
 .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mut);margin-top:4px}
 .badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;border:1px solid}
@@ -89,7 +91,7 @@ dialog::backdrop{background:#12333a99}
     </div>
     <div id="pEq">
       <div class="bar">
-        <input id="q" type="search" placeholder="Buscar por código, nombre, ubicación…" aria-label="Buscar equipo">
+        <input id="q" type="search" placeholder="Buscar por código, denominación, marca..." aria-label="Buscar equipo">
         <button class="btn sec" id="scan">Escanear QR / barras</button>
         <button class="btn" id="new">Nuevo equipo</button>
         <button class="btn sec" id="reload">Actualizar</button>
@@ -101,8 +103,13 @@ dialog::backdrop{background:#12333a99}
 </main>
 
 <dialog id="dDet">
-  <h2 style="margin:0" id="tDet"></h2>
-  <span class="badge" id="bDet"></span>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+    <img id="imgDet" class="eq-thumb hide" alt="Foto equipo">
+    <div>
+      <h2 style="margin:0" id="tDet"></h2>
+      <span class="badge" id="bDet"></span>
+    </div>
+  </div>
   <dl class="kv" id="kvDet" style="margin-top:12px"></dl>
   <h3>Historial de mantenimientos</h3>
   <div id="hDet"></div>
@@ -118,6 +125,9 @@ dialog::backdrop{background:#12333a99}
 <dialog id="dEq">
   <h2 style="margin:0" id="tEq"></h2>
   <div id="fEq"></div>
+  <label for="fImg">Imagen / Foto del Equipo</label>
+  <input id="fImg" type="file" accept="image/*">
+  <div class="prev" id="imgPrev"></div>
   <div class="err" id="eEq"></div>
   <div class="actions"><button class="btn sec" id="cEq">Cancelar</button><button class="btn" id="sEq">Guardar equipo</button></div>
 </dialog>
@@ -151,11 +161,9 @@ dialog::backdrop{background:#12333a99}
 <div id="toast" role="status"></div>
 
 <script>
-// URL de tu implementación web de Apps Script (termina en /exec). También se puede pegar en la pantalla de ingreso.
 const DEFAULT_URL = "";
-// Título que aparece en el informe impreso.
 const INSTITUCION = "Informe técnico de equipo";
-const DEF = ["ID","Nombre","Marca","Modelo","Serie","Ubicación","Estado"];
+const DEF = ["ID_Equipo", "Denominacion", "Marca", "Modelo", "Serie", "Ubicacion", "Fecha_ingreso", "Estado", "Imagen"];
 
 const $ = id => document.getElementById(id);
 const wrap = s => ({
@@ -164,7 +172,7 @@ const wrap = s => ({
   del(k){ try{ s.removeItem(k) }catch(e){} }
 });
 const store = wrap(localStorage), sess = wrap(sessionStorage);
-let user = null, pass = "", equipos = [], headers = DEF, mants = [], current = null, editing = null, fileData = null;
+let user = null, pass = "", equipos = [], headers = DEF, mants = [], current = null, editing = null, fileData = null, eqImageData = null;
 
 const apiUrl = () => ($("url").value.trim() || store.get("apiUrl") || DEFAULT_URL);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -173,7 +181,7 @@ const nowLocal = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d
 const today = () => nowLocal().slice(0,10);
 const days = d => Math.round((new Date(d + "T00:00:00") - new Date(today() + "T00:00:00")) / 864e5);
 const stamp = v => { v = (v || nowLocal()).replace("T", " "); return v.length === 16 ? v + ":00" : v; };
-// Muestra dd/mm/yyyy hh:mm:ss (solo dd/mm/yyyy cuando el valor no trae hora)
+
 const fmt = v => {
   if(v == null || v === "") return "";
   const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):?(\d{2})?)?/);
@@ -182,10 +190,29 @@ const fmt = v => {
   return `${m[3]}/${m[2]}/${m[1]}` + (t && t !== "00:00:00" ? " " + t : "");
 };
 
+// Cálculo de edad del equipo
+function calcAge(fechaIngreso) {
+  if (!fechaIngreso) return "—";
+  const start = new Date(fechaIngreso);
+  if (isNaN(start.getTime())) return "—";
+  const now = new Date();
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  if (months < 0 || (months === 0 && now.getDate() < start.getDate())) {
+    years--;
+    months += 12;
+  }
+  if (years <= 0 && months <= 0) return "Menos de 1 mes";
+  const res = [];
+  if (years > 0) res.push(`${years} año${years > 1 ? 's' : ''}`);
+  if (months > 0) res.push(`${months} mes${months > 1 ? 'es' : ''}`);
+  return res.join(" ");
+}
+
 function toast(m, bad){ const t = $("toast"); t.textContent = m; t.style.background = bad ? "var(--bad)" : "var(--ink)"; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3500); }
 
 async function post(body){
-  const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, // sin preflight CORS
+  const r = await fetch(apiUrl(), { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
     body: JSON.stringify({dni:user && user.dni, password:pass, ...body}) });
   const j = await r.json();
   if(j.message === "Sesión no válida"){ logout(); toast("La sesión expiró. Ingresa de nuevo.", true); }
@@ -231,8 +258,9 @@ async function loadAll(){
 }
 $("reload").onclick = loadAll;
 
-const idOf = e => e[headers[0]];
-const nameOf = e => e[headers.find(h => /nombre|equipo|descrip/i.test(h)) || headers[1]] ?? "";
+const idOf = e => e[headers[0]] || e["ID_Equipo"] || e["ID"];
+const nameOf = e => e["Denominacion"] || e["Nombre"] || e[headers[1]] || "";
+const imgOf = e => e["Imagen"] || "";
 
 function info(id){
   const h = mants.filter(m => String(m.idEquipo) === String(id)).sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
@@ -252,10 +280,24 @@ function render(){
   $("list").innerHTML = rows.length ? "" : `<div class="empty">${equipos.length ? "Ningún equipo coincide con la búsqueda." : "Aún no hay equipos. Usa «Nuevo equipo» para agregar el primero."}</div>`;
   rows.forEach(e => {
     const i = info(idOf(e)), d = document.createElement("div"); d.className = "card eq";
-    d.innerHTML = `<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta">${headers.slice(2,5).map(h => e[h] !== "" ? `<span>${esc(h)}: ${esc(fmt(e[h]))}</span>` : "").join("")}</div></div>${badge(i)}`;
+    const imgUrl = imgOf(e);
+    const age = calcAge(e["Fecha_ingreso"]);
+    d.innerHTML = `
+      <div class="eq-left">
+        ${imgUrl ? `<img src="${esc(imgUrl)}" class="eq-thumb" alt="Foto">` : '<div class="eq-thumb"></div>'}
+        <div>
+          <b>${esc(nameOf(e))}</b>
+          <small>ID: ${esc(idOf(e))}${age !== "—" ? ` · Edad: ${esc(age)}` : ""}</small>
+          <div class="meta">
+            ${headers.slice(2, 6).map(h => e[h] ? `<span>${esc(h)}:${esc(fmt(e[h]))}</span>` : "").join("")}
+          </div>
+        </div>
+      </div>
+      ${badge(i)}`;
     d.onclick = () => openDet(e); $("list").appendChild(d);
   });
 }
+
 function renderAlerts(){
   const all = equipos.map(e => ({e, i:info(idOf(e))}));
   const ord = {vencido:0, proximo:1, sin:2};
@@ -265,10 +307,21 @@ function renderAlerts(){
   $("alList").innerHTML = rows.length ? "" : '<div class="empty">Sin alertas: todos los equipos tienen mantenimiento al día.</div>';
   rows.forEach(({e,i}) => {
     const d = document.createElement("div"); d.className = "card eq";
-    d.innerHTML = `<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta"><span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span></div></div>${badge(i)}`;
+    const imgUrl = imgOf(e);
+    d.innerHTML = `
+      <div class="eq-left">
+        ${imgUrl ? `<img src="${esc(imgUrl)}" class="eq-thumb" alt="Foto">` : '<div class="eq-thumb"></div>'}
+        <div>
+          <b>${esc(nameOf(e))}</b>
+          <small>ID: ${esc(idOf(e))}</small>
+          <div class="meta"><span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span></div>
+        </div>
+      </div>
+      ${badge(i)}`;
     d.onclick = () => openDet(e); $("alList").appendChild(d);
   });
 }
+
 document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
   $("pEq").classList.toggle("hide", b.dataset.t !== "eq"); $("pAl").classList.toggle("hide", b.dataset.t !== "al");
@@ -279,37 +332,97 @@ function openDet(e){
   if(!e){ $("dDet").close(); return; }
   current = e; const i = info(idOf(e));
   $("tDet").textContent = nameOf(e); $("bDet").className = "badge b-" + i.st; $("bDet").textContent = i.txt;
-  $("kvDet").innerHTML = headers.map(h => `<dt>${esc(h)}</dt><dd>${esc(fmt(e[h])) || "—"}</dd>`).join("");
+  
+  const imgUrl = imgOf(e);
+  if (imgUrl) { $("imgDet").src = imgUrl; $("imgDet").classList.remove("hide"); }
+  else { $("imgDet").classList.add("hide"); }
+
+  let fieldsHtml = headers.map(h => {
+    if (h === "Imagen") {
+      return e[h] ? `<dt>Imagen</dt><dd><a href="${esc(e[h])}" target="_blank">Ver imagen</a></dd>` : "";
+    }
+    return `<dt>${esc(h)}</dt><dd>${esc(fmt(e[h])) || "—"}</dd>`;
+  }).join("");
+
+  // Agregar la edad calculada a los detalles
+  fieldsHtml += `<dt>Edad del equipo</dt><dd>${esc(calcAge(e["Fecha_ingreso"]))}</dd>`;
+
+  $("kvDet").innerHTML = fieldsHtml;
   $("hDet").innerHTML = i.h.length ? i.h.map(m => `<div class="hist"><b>${esc(m.tipo)}</b> · ${esc(fmt(m.fecha))}<small>${esc(m.tecnico)}${m.proximaFecha ? " · próximo " + esc(fmt(m.proximaFecha)) : ""}</small>${esc(m.descripcion)}${m.evidencia ? ` <a href="${esc(m.evidencia)}" target="_blank" rel="noopener">Ver evidencia</a>` : ""}</div>`).join("") : '<div class="empty">Este equipo aún no tiene mantenimientos registrados.</div>';
   if(!$("dDet").open) $("dDet").showModal();
 }
 $("aClose").onclick = () => $("dDet").close();
 $("aMant").onclick = () => {
-  fileData = null; $("dEqN").textContent = `${idOf(current)} · ${nameOf(current)}`;
+  fileData = null; $("dEqN").textContent = `ID: ${idOf(current)} · ${nameOf(current)}`;
   $("fecha").value = nowLocal().replace(" ", "T"); ["prox","desc","file"].forEach(k => $(k).value = ""); $("fprev").innerHTML = ""; $("eSave").textContent = ""; $("dlg").showModal();
 };
 $("cancel").onclick = () => $("dlg").close();
 
 /* ---------- Equipo: nuevo / editar / eliminar ---------- */
 function openEq(e){
-  editing = e || null; $("tEq").textContent = e ? "Editar equipo" : "Nuevo equipo"; $("eEq").textContent = "";
-  $("fEq").innerHTML = headers.map((h,k) => `<label for="f${k}">${esc(h)}${k === 0 ? " (código único)" : ""}</label><input id="f${k}" value="${esc(e ? String(e[h] ?? "").replace(/ 00:00:00$/, "") : "")}" ${e && k === 0 ? "readonly" : ""}>`).join("");
+  editing = e || null; eqImageData = null;
+  $("tEq").textContent = e ? "Editar equipo" : "Nuevo equipo"; $("eEq").textContent = ""; $("fImg").value = ""; $("imgPrev").innerHTML = "";
+  
+  $("fEq").innerHTML = headers.map((h,k) => {
+    if(h === "Imagen") return "";
+    const type = h === "Fecha_ingreso" ? "date" : "text";
+    return `<label for="f${k}">${esc(h)}${k === 0 ? " (código único)" : ""}</label>
+            <input id="f${k}" type="${type}" value="${esc(e ? String(e[h] ?? "").replace(/ 00:00:00$/, "") : "")}" ${e && k === 0 ? "readonly" : ""}>`;
+  }).join("");
+  
+  if (e && imgOf(e)) {
+    $("imgPrev").innerHTML = `<img src="${esc(imgOf(e))}" alt="Imagen actual">`;
+  }
+  
   $("dEq").showModal();
 }
+
+$("fImg").onchange = async () => {
+  const f = $("fImg").files[0]; eqImageData = null; if(!f) return;
+  try {
+    const data = await shrink(f);
+    eqImageData = {data, type:"image/jpeg", name:f.name.replace(/\.\w+$/, "") + ".jpg"};
+    $("imgPrev").innerHTML = `Imagen seleccionada:<img src="${data}">`;
+  } catch(e) { $("eEq").textContent = "Error al procesar la imagen."; }
+};
+
 $("new").onclick = () => openEq(null);
 $("aEdit").onclick = () => openEq(current);
 $("cEq").onclick = () => $("dEq").close();
+
 $("sEq").onclick = async () => {
-  const eq = {}; headers.forEach((h,k) => eq[h] = $("f" + k).value.trim());
+  const eq = {}; 
+  headers.forEach((h,k) => {
+    if(h !== "Imagen") {
+      eq[h] = $("f" + k) ? $("f" + k).value.trim() : "";
+    } else if(editing) {
+      eq["Imagen"] = editing["Imagen"] || "";
+    }
+  });
+
   if(!eq[headers[0]]){ $("eEq").textContent = "El código del equipo es obligatorio."; return; }
   $("sEq").disabled = true;
+  
+  const payload = {
+    action: "saveEquipo", 
+    equipo: eq, 
+    idOriginal: editing ? idOf(editing) : ""
+  };
+
+  if(eqImageData) {
+    payload.fileBase64 = eqImageData.data;
+    payload.fileMimeType = eqImageData.type;
+    payload.fileName = eqImageData.name;
+  }
+
   try{
-    const r = await post({action:"saveEquipo", equipo:eq, idOriginal: editing ? idOf(editing) : ""});
+    const r = await post(payload);
     if(r.status === "success"){ $("dEq").close(); toast("Equipo guardado"); await loadAll(); }
     else $("eEq").textContent = r.message || "No se pudo guardar.";
   }catch(e){ $("eEq").textContent = "Error de conexión. Intenta de nuevo."; }
   finally{ $("sEq").disabled = false; }
 };
+
 $("aDel").onclick = async () => {
   const n = info(idOf(current)).h.length;
   if(!confirm(`¿Eliminar el equipo ${idOf(current)} (${nameOf(current)})?` + (n ? `\nSus ${n} registros de mantenimiento se conservan en la hoja.` : ""))) return;
@@ -327,6 +440,7 @@ async function shrink(f){
   c.width = img.width * s; c.height = img.height * s; c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
   URL.revokeObjectURL(img.src); return c.toDataURL("image/jpeg", .8);
 }
+
 $("file").onchange = async () => {
   const f = $("file").files[0]; fileData = null; $("fprev").innerHTML = ""; if(!f) return;
   if(f.size > 12*1024*1024){ $("eSave").textContent = "El archivo pesa más de 12 MB."; $("file").value = ""; return; }
@@ -336,6 +450,7 @@ $("file").onchange = async () => {
     else { fileData = {data:await readURL(f), type:f.type, name:f.name}; $("fprev").textContent = "Archivo listo: " + f.name; }
   }catch(e){ $("eSave").textContent = "No se pudo leer el archivo."; }
 };
+
 $("save").onclick = async () => {
   $("eSave").textContent = "";
   if(!$("desc").value.trim()){ $("eSave").textContent = "Describe el trabajo realizado."; return; }
@@ -354,7 +469,10 @@ $("save").onclick = async () => {
 $("aRep").onclick = () => {
   const e = current, i = info(idOf(e));
   $("report").innerHTML = `<h1>${esc(INSTITUCION)}</h1><div>Emitido el ${fmt(nowLocal())} por ${esc(user.nombre)}</div>
-  <h2>Datos del equipo</h2><table>${headers.map(h => `<tr><th style="width:28%">${esc(h)}</th><td>${esc(fmt(e[h])) || "—"}</td></tr>`).join("")}</table>
+  <h2>Datos del equipo</h2><table>
+  ${headers.map(h => h !== "Imagen" ? `<tr><th style="width:28%">${esc(h)}</th><td>${esc(fmt(e[h])) || "—"}</td></tr>` : "").join("")}
+  <tr><th>Edad del equipo</th><td>${esc(calcAge(e["Fecha_ingreso"]))}</td></tr>
+  </table>
   <h2>Resumen</h2><table><tr><th>Mantenimientos registrados</th><td>${i.h.length}</td><th>Último</th><td>${i.last ? esc(fmt(i.last.fecha)) + " (" + esc(i.last.tipo) + ")" : "—"}</td></tr>
   <tr><th>Próximo programado</th><td>${esc(fmt(i.prox)) || "—"}</td><th>Estado</th><td>${esc(i.txt)}</td></tr></table>
   <h2>Historial de mantenimientos</h2>${i.h.length ? `<table><tr><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Descripción</th><th>Próximo</th></tr>${i.h.map(m => `<tr><td>${esc(fmt(m.fecha))}</td><td>${esc(m.tipo)}</td><td>${esc(m.tecnico)}</td><td>${esc(m.descripcion)}${m.evidencia ? `<br>Evidencia: ${esc(m.evidencia)}` : ""}</td><td>${esc(fmt(m.proximaFecha)) || "—"}</td></tr>`).join("")}</table>` : "<p>Sin mantenimientos registrados.</p>"}
