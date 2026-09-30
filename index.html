@@ -910,15 +910,33 @@ function render(){
   }
   paged($("list"), rows, mkCard);
 }
+
+// ---------------------------------------------------------------------
+// FUNCIÓN renderAlerts() ACTUALIZADA
+// ---------------------------------------------------------------------
 function renderAlerts(){
-  const ord = {vencido:0, proximo:1, sin:2}, vOrd = v => v.st === "vencido" ? 0 : v.st === "proximo" ? 1 : 9;
+  const ord = {vencido:0, proximo:1}, vOrd = v => v.st === "vencido" ? 0 : v.st === "proximo" ? 1 : 9;
   const rank = e => Math.min(ord[e._i.st] ?? 9, vOrd(e._v));
-  const rows = equipos.filter(e => rank(e) < 9).sort((a,b) => rank(a) - rank(b) || String(a._i.prox).localeCompare(String(b._i.prox)));
-  const n = equipos.reduce((c, e) => c + (e._i.st === "vencido" || e._v.st === "vencido" ? 1 : 0), 0);
-  $("nAl").textContent = n; $("nAl").classList.toggle("hide", !n);
-  if(!rows.length){ if($("alList")._io) $("alList")._io.disconnect(); $("alList").innerHTML = '<div class="empty">Sin alertas: todos los equipos tienen mantenimiento al día.</div>'; return; }
+  
+  // Filtramos para que solo entren los que tienen rango < 2 (0 = vencido, 1 = proximo)
+  const rows = equipos.filter(e => rank(e) < 2).sort((a,b) => rank(a) - rank(b) || String(a._i.prox).localeCompare(String(b._i.prox)));
+  
+  // Actualizamos el número de alertas basadas en el nuevo array filtrado
+  const n = rows.length; 
+  $("nAl").textContent = n; 
+  $("nAl").classList.toggle("hide", !n);
+  
+  // Si no hay equipos con alertas, mostramos el mensaje y retornamos, evitando la paginación vacía
+  if(!rows.length){ 
+    if($("alList")._io) $("alList")._io.disconnect(); 
+    $("alList").innerHTML = '<div class="empty">Sin alertas: todos los equipos tienen mantenimiento al día.</div>'; 
+    return; 
+  }
+  
+  // Paginamos sólo si hay alertas
   paged($("alList"), rows, mkAlert);
 }
+
 document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
   $("pEq").classList.toggle("hide", b.dataset.t !== "eq"); $("pAl").classList.toggle("hide", b.dataset.t !== "al");
