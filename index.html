@@ -294,8 +294,8 @@ details summary{font-weight:500}
 
 .eq b{display:block;font-size:14px;color:var(--ink);font-weight:600}
 .eq small{color:var(--mut);display:block;margin-top:2px}
-.eq .main{display:flex;gap:13px;align-items:center;min-width:0}
-.bs{display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex:none}
+.eq .main{display:flex;gap:13px;align-items:center;min-width:0;flex:1}
+.bs{display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex:none}
 
 .thumb{
   width:58px;
@@ -582,7 +582,6 @@ input[type="file"]{
         <button class="btn sec" id="scan">Escanear QR / barras</button>
         <button class="btn" id="new">Nuevo equipo</button>
         <button class="btn sec" id="reload">Actualizar</button>
-        <button class="btn sec" id="btnRegMantList" title="Registrar mantenimiento rápido">Registrar mantenimiento</button>
         <select id="flt" aria-label="Filtrar equipos" style="width:auto">
           <option value="">Todos los estados</option><option value="mv">Mantenimiento vencido</option><option value="mp">Mantenimiento por vencer</option>
           <option value="ms">Sin mantenimiento programado</option><option value="vv">Vida útil superada</option><option value="vp">Vida útil por vencer</option>
@@ -887,13 +886,65 @@ function mkCard(e){
   const i = e._i, v = e._v, d = document.createElement("div"); d.className = "card eq";
   const meta = ["Marca","Modelo","Ubicacion"].filter(h => e[h] !== "" && e[h] != null).map(h => `<span>${esc(lbl(h))}: ${esc(e[h])}</span>`);
   if(v.edad) meta.push(`<span>Edad: ${esc(v.edad)}</span>`);
-  d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta">${meta.join("")}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
-  d.onclick = () => openDet(e); return d;
+  
+  d.innerHTML = `
+    <div class="main" style="cursor:pointer;">
+      ${thumb(e)}
+      <div>
+        <b>${esc(nameOf(e))}</b>
+        <small>${esc(idOf(e))}</small>
+        <div class="meta">${meta.join("")}</div>
+      </div>
+    </div>
+    <div class="bs">
+      <div style="display:flex; gap:6px; align-items:center;">
+        ${badge(i)}${vBadge(v)}
+      </div>
+      <button type="button" class="btn sec btn-reg-item" style="padding:4px 10px; font-size:12px; min-height:30px;" title="Registrar mantenimiento para este equipo">Registrar mant.</button>
+    </div>`;
+
+  // Clic en la tarjeta principal (excepto botón) abre el detalle
+  d.querySelector('.main').onclick = () => openDet(e);
+  
+  // Clic en el botón específico de la tarjeta abre directamente el modal de mantenimiento
+  d.querySelector('.btn-reg-item').onclick = (ev) => {
+    ev.stopPropagation();
+    current = e;
+    abrirModalMantenimiento();
+  };
+
+  return d;
 }
+
 function mkAlert(e){
   const i = e._i, v = e._v, d = document.createElement("div"); d.className = "card eq";
-  d.innerHTML = `<div class="main">${thumb(e)}<div><b>${esc(nameOf(e))}</b><small>${esc(idOf(e))}</small><div class="meta"><span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span>${vBadge(v) ? `<span>${esc(v.txt)} · Edad ${esc(v.edad)}</span>` : ""}</div></div></div><div class="bs">${badge(i)}${vBadge(v)}</div>`;
-  d.onclick = () => openDet(e); return d;
+  d.innerHTML = `
+    <div class="main" style="cursor:pointer;">
+      ${thumb(e)}
+      <div>
+        <b>${esc(nameOf(e))}</b>
+        <small>${esc(idOf(e))}</small>
+        <div class="meta">
+          <span>${i.prox ? "Próximo: " + esc(fmt(i.prox)) : "Sin fecha de próximo mantenimiento"}</span>
+          ${vBadge(v) ? `<span>${esc(v.txt)} · Edad ${esc(v.edad)}</span>` : ""}
+        </div>
+      </div>
+    </div>
+    <div class="bs">
+      <div style="display:flex; gap:6px; align-items:center;">
+        ${badge(i)}${vBadge(v)}
+      </div>
+      <button type="button" class="btn sec btn-reg-item" style="padding:4px 10px; font-size:12px; min-height:30px;" title="Registrar mantenimiento para este equipo">Registrar mant.</button>
+    </div>`;
+
+  d.querySelector('.main').onclick = () => openDet(e);
+  d.querySelector('.btn-reg-item').onclick = (ev) => {
+    ev.stopPropagation();
+    current = e;
+    abrirModalMantenimiento();
+  };
+
+  return d;
 }
 const FILTROS = {mv:e => e._i.st === "vencido", mp:e => e._i.st === "proximo", ms:e => e._i.st === "sin", vv:e => e._v.st === "vencido", vp:e => e._v.st === "proximo"};
 $("q").oninput = () => { clearTimeout(render.t); render.t = setTimeout(render, 150); };
@@ -995,21 +1046,12 @@ $("aClose").onclick = () => $("dDet").close();
 // Función auxiliar para abrir el modal de registro de mantenimiento
 function abrirModalMantenimiento() {
   if(!current) {
-    toast("Selecciona un equipo primero haciendo clic en él.", true);
+    toast("Selecciona un equipo primero.", true);
     return;
   }
   files = []; $("dEqN").textContent = `${idOf(current)} — ${nameOf(current)}`;
   $("fecha").value = nowLocal().replace(" ", "T"); ["prox","desc","file"].forEach(k => $(k).value = ""); renderFiles(); $("eSave").textContent = ""; $("dlg").showModal();
 }
-
-// Vinculación del botón en la barra principal
-$("btnRegMantList").onclick = () => {
-  if(!current) {
-    toast("Primero abre o selecciona un equipo de la lista para registrarle mantenimiento.", true);
-    return;
-  }
-  abrirModalMantenimiento();
-};
 
 $("cancel").onclick = () => $("dlg").close();
 
@@ -1119,7 +1161,7 @@ $("save").onclick = async () => {
         const rec = {id:r.id, fecha:b.fecha, idEquipo:idOf(current), tipo:b.tipo, dniTecnico:user.dni, tecnico:user.nombre, descripcion:b.descripcion, proximaFecha:b.proximaFecha, evidencia:r.fileUrl || ""};
         hist.set(k, [rec, ...hist.get(k)].sort((x, y) => String(y.fecha).localeCompare(String(x.fecha))));
       }
-      refresh(); openDet(current);
+      refresh(); if($("dDet").open) openDet(current);
     } else $("eSave").textContent = r.message || "No se pudo guardar.";
   }catch(e){ $("eSave").textContent = "Error de conexión. Tus datos siguen aquí; intenta de nuevo."; }
   finally{ $("save").disabled = false; $("save").textContent = "Guardar registro"; }
