@@ -253,14 +253,18 @@ details summary{font-weight:500}
 }
 
 .bar{
-  display:grid;
-  grid-template-columns:minmax(220px,1fr) auto auto auto;
+  display:flex;
+  flex-wrap:wrap;
   gap:9px;
   margin-bottom:12px;
   align-items:center;
 }
 
-.bar input{min-width:0}
+.bar input[type="search"]{
+  flex:1;
+  min-width:200px;
+}
+
 .bar select{width:auto;min-width:170px}
 
 #reader{
@@ -508,12 +512,6 @@ input[type="file"]{
 
 .hide{display:none!important}
 
-@media(max-width:850px){
-  .bar{grid-template-columns:1fr 1fr}
-  .bar input{grid-column:1/-1}
-  .bar select{width:100%}
-}
-
 @media(max-width:560px){
   header{padding:12px 15px;min-height:60px}
   header h1{font-size:16px}
@@ -523,8 +521,8 @@ input[type="file"]{
   .card{padding:14px}
   .login{margin:6vh auto 0;padding:20px}
   .login h2{font-size:21px!important}
-  .bar{grid-template-columns:1fr}
-  .bar input{grid-column:auto}
+  .bar{display:grid;grid-template-columns:1fr}
+  .bar input[type="search"]{grid-column:auto}
   .bar .btn,.bar select{width:100%}
   .eq{padding:13px;align-items:flex-start}
   .eq .main{gap:10px}
@@ -584,6 +582,7 @@ input[type="file"]{
         <button class="btn sec" id="scan">Escanear QR / barras</button>
         <button class="btn" id="new">Nuevo equipo</button>
         <button class="btn sec" id="reload">Actualizar</button>
+        <button class="btn sec" id="btnRegMantList" title="Registrar mantenimiento rápido">Registrar mantenimiento</button>
         <select id="flt" aria-label="Filtrar equipos" style="width:auto">
           <option value="">Todos los estados</option><option value="mv">Mantenimiento vencido</option><option value="mp">Mantenimiento por vencer</option>
           <option value="ms">Sin mantenimiento programado</option><option value="vv">Vida útil superada</option><option value="vp">Vida útil por vencer</option>
@@ -607,7 +606,6 @@ input[type="file"]{
     <button class="btn bad" id="aDel">Eliminar</button>
     <button class="btn sec" id="aEdit">Editar</button>
     <button class="btn sec" id="aRep">Informe PDF / imprimir</button>
-    <button class="btn" id="aMant">Registrar mantenimiento</button>
     <button class="btn sec" id="aClose">Cerrar</button>
   </div>
 </dialog>
@@ -901,7 +899,6 @@ const FILTROS = {mv:e => e._i.st === "vencido", mp:e => e._i.st === "proximo", m
 $("q").oninput = () => { clearTimeout(render.t); render.t = setTimeout(render, 150); };
 $("flt").onchange = render;
 
-// FUNCIÓN render() MODIFICADA PARA LISTAR SOLO CUANDO HAYA BÚSQUEDA O FILTRO
 function render(){
   const qValue = $("q").value.trim();
   const fltValue = $("flt").value;
@@ -994,10 +991,26 @@ function openDet(e){
   if(!$("dDet").open) $("dDet").showModal();
 }
 $("aClose").onclick = () => $("dDet").close();
-$("aMant").onclick = () => {
+
+// Función auxiliar para abrir el modal de registro de mantenimiento
+function abrirModalMantenimiento() {
+  if(!current) {
+    toast("Selecciona un equipo primero haciendo clic en él.", true);
+    return;
+  }
   files = []; $("dEqN").textContent = `${idOf(current)} — ${nameOf(current)}`;
   $("fecha").value = nowLocal().replace(" ", "T"); ["prox","desc","file"].forEach(k => $(k).value = ""); renderFiles(); $("eSave").textContent = ""; $("dlg").showModal();
+}
+
+// Vinculación del botón en la barra principal
+$("btnRegMantList").onclick = () => {
+  if(!current) {
+    toast("Primero abre o selecciona un equipo de la lista para registrarle mantenimiento.", true);
+    return;
+  }
+  abrirModalMantenimiento();
 };
+
 $("cancel").onclick = () => $("dlg").close();
 
 /* ---------- Equipo: nuevo / editar / eliminar ---------- */
