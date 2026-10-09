@@ -570,6 +570,124 @@ input[type="file"]{
   body{background:#fff}
   @page{margin:14mm}
 }
+
+
+/* ===== Botones modernos: acabado profesional ===== */
+:root{
+  --btn-radius: 11px;
+  --btn-primary: #176b70;
+  --btn-primary-hover: #10565b;
+  --btn-ring: rgba(23,107,112,.22);
+}
+button, .btn, .tab, .ev-card{
+  -webkit-tap-highlight-color: transparent;
+}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:42px;
+  padding:10px 16px;
+  border-radius:var(--btn-radius);
+  border:1px solid transparent;
+  background:linear-gradient(180deg,#207f84 0%,var(--btn-primary) 100%);
+  color:#fff;
+  font-weight:600;
+  letter-spacing:.05px;
+  line-height:1.25;
+  box-shadow:0 2px 3px rgba(16,86,91,.10), inset 0 1px 0 rgba(255,255,255,.14);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+}
+.btn .ico{
+  width:17px;
+  height:17px;
+  margin:0;
+  flex:0 0 17px;
+  stroke-width:1.9;
+}
+.btn:hover{
+  background:linear-gradient(180deg,#176f74 0%,var(--btn-primary-hover) 100%);
+  border-color:var(--btn-primary-hover);
+  transform:translateY(-1px);
+  box-shadow:0 5px 12px rgba(16,86,91,.18);
+}
+.btn:active{transform:translateY(0) scale(.985);box-shadow:none}
+.btn:focus-visible,.tab:focus-visible,.ev-card:focus-visible{
+  outline:3px solid var(--btn-ring);
+  outline-offset:2px;
+}
+.btn.sec{
+  color:#17666b;
+  background:linear-gradient(180deg,#fff 0%,#f5fbfb 100%);
+  border-color:#c8dfe0;
+  box-shadow:0 1px 2px rgba(20,50,55,.04);
+}
+.btn.sec:hover{
+  color:#104f53;
+  background:#eaf6f6;
+  border-color:#8fbfc2;
+  box-shadow:0 4px 10px rgba(22,104,109,.10);
+}
+.btn.bad{
+  color:#b52f35;
+  background:linear-gradient(180deg,#fff 0%,#fff7f6 100%);
+  border-color:#efc5c3;
+}
+.btn.bad:hover{color:#fff;background:linear-gradient(180deg,#d64b4b,#b92e35);border-color:#b92e35}
+.btn.ghost{
+  color:#4a6065;
+  background:#fff;
+  border-color:#dce6e8;
+  box-shadow:none;
+}
+.btn.ghost:hover{color:#233f44;background:#f4f8f9;border-color:#bfced1}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.btn-reg-item{white-space:nowrap}
+.tab{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border-radius:10px 10px 0 0;
+  transition:color .16s ease,background .16s ease,border-color .16s ease;
+}
+.tab .ico{width:16px;height:16px;margin:0}
+.tab.on{background:linear-gradient(180deg,#eff9f9 0%,#fff 100%)}
+.ev-card{
+  border-radius:12px;
+  border-color:#dbe5e7;
+  padding:6px;
+  box-shadow:0 2px 5px rgba(25,50,55,.05);
+}
+.ev-card:hover{transform:translateY(-2px);box-shadow:0 7px 16px rgba(22,104,109,.12)}
+.actions .btn{min-height:40px}
+.bar .btn{min-height:42px}
+@media(max-width:560px){
+  .btn{
+    min-height:34px;
+    padding:7px 10px;
+    gap:5px;
+    border-radius:9px;
+    font-size:12px;
+  }
+  .btn .ico{width:15px;height:15px;flex-basis:15px}
+  .btn.ghost{min-height:31px;padding:6px 8px}
+  .bar .btn,.bar select{min-height:36px}
+  .actions .btn{min-height:35px;padding:7px 8px;font-size:11px;gap:4px}
+  .actions .btn .ico{width:14px;height:14px;flex-basis:14px}
+  .eq .btn-reg-item{min-height:30px!important;padding:6px 9px!important;font-size:11px!important}
+  .tabs{gap:5px}
+  .tabs .tab{padding:9px 11px;font-size:12px}
+}
+@media(max-width:390px){
+  .btn{padding:6px 8px;font-size:11px}
+  .actions .btn{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .btn,.tab,.ev-card{transition:none}
+}
+
 </style>
 </head>
 <body>
@@ -955,7 +1073,6 @@ function mkCard(e){
 
   // Clic en la tarjeta principal (excepto botón) abre el detalle
   d.querySelector('.main').onclick = () => openDet(e);
-  const regBtn = d.querySelector('.btn-reg-item'); regBtn.insertAdjacentHTML('afterbegin', icon('tool'));
   
   // Clic en el botón específico de la tarjeta abre directamente el modal de mantenimiento
   d.querySelector('.btn-reg-item').onclick = (ev) => {
@@ -989,7 +1106,6 @@ function mkAlert(e){
     </div>`;
 
   d.querySelector('.main').onclick = () => openDet(e);
-  d.querySelector('.btn-reg-item').insertAdjacentHTML('afterbegin', icon('tool'));
   d.querySelector('.btn-reg-item').onclick = (ev) => {
     ev.stopPropagation();
     current = e;
