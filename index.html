@@ -542,6 +542,28 @@ input[type="file"]{
   .tabs .tab{padding:10px 11px}
 }
 
+/* Iconos en botones: consistentes y accesibles */
+.btn .ico, .tab .ico{display:inline-flex;align-items:center;justify-content:center;line-height:1;flex:none}
+.btn .ico{width:1.1em;height:1.1em;margin-right:7px;font-size:1.05em}
+.tab .ico{margin-right:5px}
+.btn.icon-only .ico{margin:0}
+@media(max-width:560px){
+  .btn{padding:7px 10px;min-height:36px;font-size:12px;border-radius:8px}
+  .btn .ico{margin-right:5px}
+  .btn.ghost{padding:6px 9px;min-height:32px}
+  .bar{gap:7px}
+  .bar .btn,.bar select{width:100%;min-height:34px}
+  .actions{gap:6px;padding-top:9px}
+  .actions .btn{flex:1;min-width:0;padding:7px 8px;font-size:11px;white-space:normal}
+  .eq .btn-reg-item{padding:5px 8px!important;font-size:11px!important;min-height:28px!important}
+  .tabs .tab{font-size:12px;padding:9px 10px}
+}
+@media(max-width:390px){
+  .btn{padding:6px 8px;font-size:11px}
+  .btn .ico{margin-right:4px}
+  .actions .btn{font-size:10px}
+}
+
 @media print{
   body.printing>*:not(#report){display:none!important}
   body.printing #report{display:block}
@@ -701,6 +723,34 @@ async function post(body, ms){
     if(j.message === "Sesión no válida"){ logout(); toast("La sesión expiró. Ingresa de nuevo.", true); }
     return j;
   } finally { if(t) clearTimeout(t); }
+}
+
+/* Iconos SVG inline, sin depender de librerías externas */
+const ICONS = {
+  login:'<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+  scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18M7 9v6m3-6v6m4-6v6m3-6v6"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', refresh:'<path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/>',
+  save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+  cancel:'<path d="m18 6-12 12M6 6l12 12"/>', edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4Z"/>',
+  trash:'<path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/>',
+  report:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8m-8 4h8"/>',
+  close:'<path d="m18 6-12 12M6 6l12 12"/>', tool:'<path d="M14.7 6.3a5 5 0 0 0-6.4 6.4L3 18l3 3 5.3-5.3a5 5 0 0 0 6.4-6.4L14 12l-2-2Z"/>',
+  more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>', alert:'<path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 4h.01"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>', file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>',
+  external:'<path d="M14 3h7v7m0-7L10 17"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+};
+function icon(name){return `<svg class="ico" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.file}</svg>`;}
+function addButtonIcons(){
+  const map = [
+    ['bLogin','login'],['out','logout'],['scan','scan'],['new','plus'],['reload','refresh'],
+    ['aDel','trash'],['aEdit','edit'],['aRep','report'],['aClose','close'],['cEq','cancel'],
+    ['sEq','save'],['cancel','cancel'],['save','save'],['xScan','cancel']
+  ];
+  map.forEach(([id,name])=>{const b=$(id);if(b&&!b.dataset.iconized){b.insertAdjacentHTML('afterbegin',icon(name));b.dataset.iconized='1';}});
+  document.querySelectorAll('.btn-reg-item').forEach(b=>{if(!b.dataset.iconized){b.insertAdjacentHTML('afterbegin',icon('tool'));b.dataset.iconized='1';}});
+  document.querySelectorAll('.tab').forEach(b=>{if(!b.dataset.iconized){b.insertAdjacentHTML('afterbegin',icon(b.dataset.t==='al'?'alert':'file'));b.dataset.iconized='1';}});
+  document.querySelectorAll('.actions .btn').forEach(b=>{if(!b.dataset.iconized){const t=b.textContent.toLowerCase();const n=t.includes('cancel')?'cancel':t.includes('cerrar')?'close':t.includes('guardar')?'save':t.includes('quitar')?'trash':t.includes('reintentar')?'refresh':'file';b.insertAdjacentHTML('afterbegin',icon(n));b.dataset.iconized='1';}});
 }
 
 /* ---------- Acceso ---------- */
@@ -905,6 +955,7 @@ function mkCard(e){
 
   // Clic en la tarjeta principal (excepto botón) abre el detalle
   d.querySelector('.main').onclick = () => openDet(e);
+  const regBtn = d.querySelector('.btn-reg-item'); regBtn.insertAdjacentHTML('afterbegin', icon('tool'));
   
   // Clic en el botón específico de la tarjeta abre directamente el modal de mantenimiento
   d.querySelector('.btn-reg-item').onclick = (ev) => {
@@ -938,6 +989,7 @@ function mkAlert(e){
     </div>`;
 
   d.querySelector('.main').onclick = () => openDet(e);
+  d.querySelector('.btn-reg-item').insertAdjacentHTML('afterbegin', icon('tool'));
   d.querySelector('.btn-reg-item').onclick = (ev) => {
     ev.stopPropagation();
     current = e;
@@ -1214,6 +1266,7 @@ $("xScan").onclick = stopScan;
 $("dScan").addEventListener("cancel", e => { e.preventDefault(); stopScan(); });
 
 /* ---------- Inicio ---------- */
+addButtonIcons();
 try{ const s = JSON.parse(sess.get("s") || "null"); if(s && apiUrl()){ user = s.user; pass = s.pass; enter(); } }catch(e){}
 </script>
 </body>
